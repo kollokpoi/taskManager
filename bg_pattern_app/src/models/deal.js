@@ -1,4 +1,5 @@
 import { Task } from './task.js';
+import { getStatusName } from '../constants/taskStatuses.js';
 
 export class Deal {
   constructor(data) {
@@ -10,7 +11,7 @@ export class Deal {
     this.dateCreate = data.DATE_CREATE || data.dateCreate;
     this.plannedTime = parseFloat(data.UF_CRM_PLANNED_TIME || data.plannedTime || 0);
     this.tasks = (data.tasks || []).map(task => new Task(task));
-    console.log(`Deal ${this.id}`,Deal)
+    console.log(`Deal ${this.id}`,this)
   }
 
   // Расчеты внутри модели
@@ -67,7 +68,8 @@ export class Deal {
       id: this.id,
       name: this.name,
       sum: this.sum,
-      stage: this.stageName,
+      stageId:this.stageId,
+      stage: getStatusName(this.stageId),
       plannedTime: this.plannedTime,
       timeSpent: timeSpent,
       resultTime: resultTime,

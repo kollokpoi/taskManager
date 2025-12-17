@@ -20,3 +20,6 @@ export const TASK_STATUSES = {
   export const getStatusIcon = (statusId) => {
     return TASK_STATUSES[statusId]?.icon || '❓';
   };
+  export const isInWork=(stageId)=>{
+    return stageId<5
+  }

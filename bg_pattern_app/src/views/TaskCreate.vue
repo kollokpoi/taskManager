@@ -1,22 +1,12 @@
 <template>
   <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Учет времени занятости сотрудников</h1>
+    <h1 class="text-2xl font-bold mb-4">Распланировать задачи </h1>
     <div class="flex w-full justify-between">
       <div class="inputs flex items-center h-10">
         <DateRangePicker 
           v-model:startDate="startDate"
           v-model:endDate="endDate"
         />
-        <Dropdown 
-          v-model="selectedUser"
-          :options="usersOptions"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Все сотрудники" 
-          class="mr-4 w-64"
-          @change="onUserChange"
-        />
-        <InputNumber placeholder="Ставка"  @input="updateHours" :min="0" :max="24" :step="0.5"/>
       </div>
       <ExcelCreate :dataItems="filteredUsers" title="Учет времени задач/занятости/трудозатрат сотрудников"/>
     </div>
@@ -35,82 +25,69 @@
           :rowsPerPageOptions="[5, 10, 20, 50]"
           paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
           currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел">
-            <Column field="date" header="Дата" sortable>
-                <template #body="{ data }">
-                    <span class="font-medium">{{ formatTableDate(data.date) }}</span>
-                </template>
-            </Column>
-            <Column field="name" header="Имя сотрудника" sortable>
+            <Column field="name" header="Сотрудник" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ data.name }}</span>
                 </template>
             </Column>
-            <Column field="taskCount" header="Количество задач" sortable>
+            <Column field="taskCount" header="Задачи" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ data.taskCount }}</span>
                 </template>
             </Column>
-            <Column field="timeSpent" header="Затраченное время" sortable>
+            <Column field="timeEstimate" header="Время задач" sortable>
+                <template #body="{ data }">
+                    <span class="font-medium">{{ formatHoursToHHMM(data.timeEstimate)  }}</span>
+                </template>
+            </Column>
+            <Column field="timeSpent" header="Израсходовано фактически" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent)  }}</span>
                 </template>
             </Column>
-            <Column field="workTime" header="Рабочее время " sortable>
+            <Column field="result" header="Итого" sortable>
                 <template #body="{ data }">
-                  
-                    <span class="font-medium">{{ formatHoursToHHMM(data.workTime) }}</span>
-                </template>
-            </Column>
-            <Column field="result" header="Итого/% затраченного времени" sortable>
-                <template #body="{ data }">
-                    <span class="font-medium"> {{ data.result }}%</span>
+                    <span class="font-medium">{{ formatHoursToHHMM(data.result)}}</span>
                 </template>
             </Column>
         </DataTable>
     </div>
     <div
-      v-if="loading || filteredUsers.length===0"
+      v-if="loading"
       class="overflow-x-auto mt-3">
       <DataTable
         :value="skeletonData"
         class="p-datatable-sm"
         responsiveLayout="scroll">
-        <Column field="date" header="Дата">
+        <Column field="employerName" header="Сотрудник" >
             <template #body>
                 <Skeleton
                   height="1.5rem"
                   class="mb-2" />
             </template>
         </Column>
-        <Column field="employerName" header="Имя сотрудника" >
+        <Column field="taskCount" header="Задачи">
             <template #body>
                 <Skeleton
                   height="1.5rem"
                   class="mb-2" />
             </template>
         </Column>
-        <Column field="taskCount" header="Количество задач">
+        <Column field="lostTime" header="Время задач">
             <template #body>
                 <Skeleton
                   height="1.5rem"
                   class="mb-2" />
             </template>
         </Column>
-        <Column field="lostTime" header="Затраченное время (ч)">
+        <Column field="workTime" header="Израсходовано фактически">
             <template #body>
                 <Skeleton
                   height="1.5rem"
                   class="mb-2" />
             </template>
         </Column>
-        <Column field="workTime" header="Рабочее время (ч)">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="result" header="Итого (ч)/% затраченного времени">
+        <Column field="result" header="Итого">
           <template #body>
             <Skeleton
               height="1.5rem"
@@ -134,13 +111,25 @@
             <div class="text-sm text-gray-500">Сотрудник</div>
             <div class="font-medium">{{ selectedRow.name }}</div>
           </div>
+          
+          <div class="bg-gray-50 p-3 rounded">
+            <div class="text-sm text-gray-500">Время задач</div>
+            <div class="font-medium">{{ formatHoursToHHMM(selectedRow.timeEstimate)}}</div>
+          </div>
+          
           <div class="bg-gray-50 p-3 rounded">
             <div class="text-sm text-gray-500">Задач</div>
             <div class="font-medium">{{ selectedRow.taskCount }}</div>
           </div>
-          <div class="bg-gray-50 p-3 rounded">
-            <div class="text-sm text-gray-500">Затрачено времени</div>
-            <div class="font-medium">{{ formatHoursToHHMM(selectedRow.result) }}</div>
+          <div class="flex w-full justify-between">
+            <div class="bg-gray-50 p-3 rounded w-1/2 mr-2">
+              <div class="text-sm text-gray-500">Затрачено времени</div>
+              <div class="font-medium">{{ formatHoursToHHMM(selectedRow.timeSpent)}}</div>
+            </div>
+            <div class="bg-gray-50 p-3 rounded w-1/2">
+              <div class="text-sm text-gray-500">Итого</div>
+              <div class="font-medium">{{ formatHoursToHHMM(selectedRow.result)}}</div>
+            </div>
           </div>
         </div>
         
@@ -157,22 +146,22 @@
           currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел">
             <Column field="title" header="Задача" sortable>
                 <template #body="{ data }">
-                    <span class="font-medium">{{data.title  }}</span>
+                    <span class="font-medium">{{data.title}}</span>
                 </template>
             </Column>
-            <Column field="timeSpent" header="Затраченное время" sortable>
+            <Column field="timeEstimate" header="Время задачи" sortable>
+                <template #body="{ data }">
+                    <span class="font-medium">{{ formatHoursToHHMM(data.timeEstimate)  }}</span>
+                </template>
+            </Column>
+            <Column field="timeSpent" header="Израсходовано фактически" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent)  }}</span>
                 </template>
             </Column>
-            <Column field="workTime" header="Рабочее время " sortable>
+            <Column field="result" header="Итого" sortable>
                 <template #body="{ data }">
-                    <span class="font-medium">{{ formatHoursToHHMM(data.workTime) }}</span>
-                </template>
-            </Column>
-            <Column field="result" header="Итого/% затраченного времени" sortable>
-                <template #body="{ data }">
-                    <span class="font-medium"> {{ data.result }}%</span>
+                    <span class="font-medium"> {{ formatHoursToHHMM(data.result) }}</span>
                 </template>
             </Column>
         </DataTable>
@@ -181,6 +170,22 @@
         <div v-else class="text-center text-gray-500 py-4">
           Нет информации о задачах
         </div>
+      </div>
+      <div class="flex w-full">
+        <Dropdown 
+          v-model="selectedUserTask"
+          :options="userTasksOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Задачи" 
+          class="mr-3 flex-1"/>
+        <Button 
+          v-if="selectedUserTask"
+          label="Сохранить" 
+          class="w-1/4"
+          @click="addTaskClick"
+          autofocus 
+        />
       </div>
     </Dialog>
   </div>
@@ -192,19 +197,20 @@
   import DateRangePicker from '../components/DateRangePicker.vue';
   import { useGlobalDates } from '../utils/globalDates.js';
   import { userService } from '../services/usersService.js';
-  import debounce from '../utils/debounce.js';
+  import { taskService } from '../services/tasksService.js';
 
   const globalDates = useGlobalDates();
 
   const startDate = ref(globalDates.dates.start);
   const endDate = ref(globalDates.dates.end);
-  const selectedUser = ref(null);
   const loading = ref(false);
   const users = ref([]);
+  const userTasks = ref([])
   const skeletonData = Array(5).fill({});
-  const workingHours = ref(8)
   const selectedRow = ref(null)
+  const selectedUserTask = ref(null)
   const showDialog = ref(false);
+  const currentUser = ref(null)
 
   const loadUsers = async () => {
     try {
@@ -217,68 +223,42 @@
       loading.value = false;
     }
   };
-
-  const filteredUsers = computed(() => {
-    console.log("users", users.value);
-    
-    if (startDate.value && endDate.value) {
-      const start = new Date(startDate.value);
-      const end = new Date(endDate.value);
-      
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        console.error("Invalid dates");
-        return [];
-      }
-      
-      const usersArray = []
-      const currentDate = new Date(start);
-      
-      while (currentDate <= end) {
-        const sortedUsers = users.value
-          .filter(user => !selectedUser.value || user.id == selectedUser.value)
-          .map(user=>user.toTableRowWithDate(currentDate, workingHours.value))
-        usersArray.push(...sortedUsers) 
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      return usersArray;
-      
-    } else {
-      return [];
-    }
-  });
   
-  const usersOptions = computed(() => {
-    const usersMap = new Map();
-    
-    users.value.forEach(user => {
-      if (user.id && user.name && user.lastName) {
-        usersMap.set(user.id, {
-            id: user.id,
-            name: `${user.name} ${user.lastName}`,
+  const loadUserTasks = async () => {
+    try {
+      currentUser.value = await userService.getCurrentUser()
+      userTasks.value = await taskService.getUserTasks(currentUser.value.id,false);
+    } catch (error) {
+      console.error('Ошибка загрузки пользователей:', error);
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const userTasksOptions = computed(() => {
+    const userTasksMap = new Map();
+    const filteredUserTasks =  userTasks.value.filter(task=>!task.closedBy)
+    filteredUserTasks.forEach(userTask => {
+      userTasksMap.set(userTask.id, {
+            id: userTask.id,
+            name: userTask.title,
         });
-      }
     });
 
-    const employees = Array.from(usersMap.values());
-    employees.sort((a, b) => a.name.localeCompare(b.name));
+    const userTasksArray= Array.from(userTasksMap.values());
+    userTasksArray.sort((a, b) => a.name.localeCompare(b.name));
     
     return [
-      { id: null, name: 'Все сотрудники' },
-      ...employees
+      { id: null, name: 'Все задачи' },
+      ...userTasksArray 
     ];
   });
 
-  const onUserChange = (event) => {
-    console.log('Выбран сотрудник:', {
-      id: event.value,
-      name: usersOptions.value.find(emp => emp.id === event.value)?.name
-    });
-  };
-  
-  const updateHours = debounce((event) => {
-    workingHours.value = parseFloat(event.value) || 0;
-  }, 500);
+  const filteredUsers = computed(() => {
+    const sortedUsers = users.value
+          .map(user=>user.toTableRow(startDate.value,endDate.value))
+    return sortedUsers;
+  });
 
   const rowClassFunction = () => {
     return "cursor-pointer hover:bg-blue-50";
@@ -291,6 +271,27 @@
 
   const closeDialog = () => {
     showDialog.value = false;
+  };
+
+  const addTaskClick = async () => {
+    const taskId = selectedUserTask.value;
+    const newResponsibleId = selectedRow.value.id
+
+
+    try {
+      loading.value = true
+      await taskService.changeTaskResponsible(taskId, newResponsibleId);
+      
+      await Promise.all([
+        loadUsers(),      // Перезагружаем сотрудников
+        loadUserTasks()   // Перезагружаем задачи текущего пользователя
+      ]);
+      
+      closeDialog();
+      
+    } catch (error) {
+      console.error('Ошибка при изменении ответственного:', error);
+    }
   };
 
   watch(() => globalDates.dates.start, (newVal) => {
@@ -307,5 +308,6 @@
 
   onMounted( () => {
     loadUsers();
+    loadUserTasks();
   });
 </script>

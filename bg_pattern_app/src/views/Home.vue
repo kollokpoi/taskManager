@@ -31,7 +31,12 @@
           currentPageReportTemplate="Показано {first} - {last} из {totalRecords} сделок">
           <Column field="name" header="Название" sortable>
             <template #body="{ data }">
-              <span class="font-medium">{{ data.name }}</span>
+              <span 
+              :class="['font-medium',
+                  data.plannedTime===0?'text-yellow-200':
+                  data.resultTime<0?'text-red-200':
+                  isInWork(data.stageId)?'text-blue-400':'text-green-400'
+                ]">{{ data.name }}</span>
             </template>
           </Column>
           <Column field="sum" header="Сумма" sortable>
@@ -146,6 +151,7 @@
   import { formatCurrency, formatHoursToHHMM } from '../utils/formatters.js';
   import DateRangePicker from '../components/DateRangePicker.vue';
   import { useGlobalDates } from '../utils/globalDates.js';
+  import { isInWork } from '../constants/taskStatuses.js';
 
   const router = useRouter();
   const globalDates = useGlobalDates();
@@ -171,9 +177,15 @@
   };
   
   const dealsWithCosts = computed(() => {
-    return deals.value
+    if(!startDate.value && !endDate.value){
+      return deals.value
+      .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
+    }else{
+      return deals.value
       .filter(deal => deal.hasTasksInPeriod(startDate.value, endDate.value))
       .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
+    }
+
   });
   
   const updateWage = debounce((event) => {
@@ -197,8 +209,10 @@
     });
   };
 
-  const rowClassFunction = () => {
-    return 'cursor-pointer hover:bg-blue-50';
+  const rowClassFunction = (data) => {
+    const classes = ['cursor-pointer'];
+
+    return classes.join(' ')
   };
 
   const onDatesChange = ({ start, end }) => {

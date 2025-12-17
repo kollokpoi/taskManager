@@ -17,7 +17,7 @@ export const mainItems = [
   { label: 'Задачи', icon: ClipboardIcon , additionalPath:'/tasks'},
   { label: 'Занятость по сотрудникам за период', icon: UsersIcon , additionalPath:'/periodEmployment'},
   { label: 'Занятость по проектам', icon: ClipboardDocumentCheckIcon , additionalPath:'/projectEmployment'},
-  { label: 'Распланировать задачи', icon: CalendarIcon , additionalPath:'/dealsCreate'},
+  { label: 'Распланировать задачи', icon: CalendarIcon , additionalPath:'/taskCreate'},
 ];
 
 export const utilityItems = [

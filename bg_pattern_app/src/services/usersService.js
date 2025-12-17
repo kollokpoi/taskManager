@@ -51,7 +51,6 @@ export class UserService {
       throw error;
     }
   }
-
   // Получить пользователя по ID
   async getUserById(userId) {
     const users = await this.getUsers();

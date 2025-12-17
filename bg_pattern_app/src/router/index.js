@@ -5,12 +5,11 @@ import bitrixService from '../services/bitrixService';
 import FullLayout from '../layouts/FullLayout.vue';
 import Home from '../views/Home.vue';
 import Tasks from '../views/Tasks.vue';
-import Settings from '../views/Settings.vue';
 import PeriodEmployment from '../views/PeriodEmployment.vue';
 import ProjectEmployment from '../views/ProjectEmployment.vue';
-import DealsCreate from '../views/DealsCreate.vue';
-import test from '../views/test.vue';
+import TaskCreate from '../views/TaskCreate.vue';
 import AuthError from '../views/AuthError.vue';
+import instruction from '../views/instruction.vue';
 
 const routes = [
   {
@@ -19,11 +18,10 @@ const routes = [
     children: [
       { path: '/', name: 'home', component: Home },
       { path: '/tasks', name: 'tasks', component: Tasks },
-      { path: '/test', name: 'test', component: test },
       { path: '/periodEmployment', name: 'periodEmployment', component: PeriodEmployment },
       { path: '/projectEmployment', name: 'projectEmployment', component: ProjectEmployment },
-      { path: '/settings', name: 'settings', component: Settings },
-      { path: '/dealsCreate', name: 'dealsCreate', component: DealsCreate },
+      { path: '/taskCreate', name: 'taskCreate', component: TaskCreate },
+      { path: '/instruction', name: 'instruction', component: instruction },
       {
         path: '/auth-error',
         name: 'auth-error',

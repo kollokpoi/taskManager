@@ -13,6 +13,8 @@ export class Task {
     this.deadline = data.deadline || data.DEADLINE;
     this.elapsedItems = (data.elapsedItems || []).map(item => new TaskElapsedItem(item));
     this.statusId = parseInt(data.status||data.STATUS)||0
+    this.createdDate = data.createdDate || null;
+    this.closedBy = data.closedBy || null
   }
 
   // Добавляем периоды времени
@@ -59,7 +61,9 @@ export class Task {
       timeEstimate : this.timeEstimate/3600,
       deadline:this.deadline,
       resultTime,
-      status:getStatusName(this.statusId)
+      status:getStatusName(this.statusId),
+      dateStart:this.dateStart,
+      dateCreate:this.createdDate
     };
   }
 }
