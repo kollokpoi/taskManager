@@ -252,7 +252,7 @@
 
   const userTasksOptions = computed(() => {
     const userTasksMap = new Map();
-    const filteredUserTasks =  userTasks.value.filter(task=>!task.closedBy)
+    const filteredUserTasks =  userTasks.value.filter(task=>!task.closedBy || !task.closedDate)
     filteredUserTasks.forEach(userTask => {
       userTasksMap.set(userTask.id, {
             id: userTask.id,

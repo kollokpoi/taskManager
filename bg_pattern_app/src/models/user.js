@@ -1,95 +1,127 @@
-import { TaskElapsedItem } from './TaskElapsedItem.js';
-import { getStatusName } from '../constants/taskStatuses.js';
 import { Task } from './task.js';
-
 export class User {
   constructor(data) {
     this.id = data.id || data.ID;
     this.name = data.NAME || data.name;
-    this.lastName = data.lastName || data.LAST_NAME
+    this.lastName = data.lastName || data.LAST_NAME;
     this.tasks = (data.tasks || []).map(item => new Task(item));
+    // Кэш для ускорения расчетов
+    this._filteredCache = new Map();
+    this._calculationCache = new Map();
   }
 
-  getFilteredTasks(startDate = null, endDate = null){
-    const filteredTasks = this.tasks.filter(task => {
-      return task.isInDateRange(startDate, endDate);
-    });
-    return filteredTasks
+  // Оптимизированная фильтрация с кэшированием
+  getFilteredTasks(startDate = null, endDate = null) {
+    const cacheKey = `filtered_tasks_${startDate}_${endDate}`;
+    
+    if (this._filteredCache.has(cacheKey)) {
+      return this._filteredCache.get(cacheKey);
+    }
+
+    const filteredTasks = this.tasks.filter(task => 
+      task.isInDateRange(startDate, endDate)
+    );
+    
+    this._filteredCache.set(cacheKey, filteredTasks);
+    return filteredTasks;
   }
 
+  // Оптимизированные расчеты с кэшированием
   getTimeSpentHours(startDate = null, endDate = null) {
-    return this.getFilteredTasks(startDate, endDate).reduce((sum, task) => {
-      return sum + task.getTimeSpentHours(startDate, endDate);
-    }, 0);
+    const cacheKey = `time_spent_${startDate}_${endDate}`;
+    
+    if (this._calculationCache.has(cacheKey)) {
+      return this._calculationCache.get(cacheKey);
+    }
+
+    const result = this.getFilteredTasks(startDate, endDate)
+      .reduce((sum, task) => sum + task.getTimeSpentHours(startDate, endDate), 0);
+    
+    this._calculationCache.set(cacheKey, result);
+    return result;
   }
 
   getTasksInDateCount(startDate = null, endDate = null) {
     return this.getFilteredTasks(startDate, endDate).length;
   }
 
-  toTableRowWithDate(date, workTime){
+  // Оптимизированный toTableRowWithDate
+  toTableRowWithDate(date, workTime) {
+    const cacheKey = `table_row_${date}_${workTime}`;
     const startDateCopy = new Date(date);
     const endDateCopy = new Date(date);
     endDateCopy.setHours(23, 59, 59, 999);
     
+    if (this._calculationCache.has(cacheKey)) {
+      return this._calculationCache.get(cacheKey);
+    }
+    const filtered = this.getFilteredTasks(startDateCopy, endDateCopy)
     const timeSpent = this.getTimeSpentHours(startDateCopy, endDateCopy);
-    const result = (timeSpent/workTime*100).toFixed(2)
-
-    const filteredTasks = this.getFilteredTasks(startDateCopy, endDateCopy)
-    .map(task=>{
-      const taskTimeSpent = task.getTimeSpentHours(startDateCopy,endDateCopy)
-      return{
-        title:task.title,
-        timeSpent:taskTimeSpent,
-        workTime,
-        result:(taskTimeSpent/workTime*100).toFixed(2)
-      }
+    const filteredTasks = filtered
+      .map(task => {
+        const taskTimeSpent = task.getTimeSpentHours(startDateCopy, endDateCopy);
+        return {
+          title: task.title,
+          timeSpent: taskTimeSpent,
+          workTime,
+          result: (taskTimeSpent / workTime * 100).toFixed(2)
+        };
+      });
+    console.log("userTasks",{
+      startDateCopy,
+      endDateCopy,
+      filtered,
+      filteredTasks,
+      task:this.tasks
     })
-
-    return {
+    const result = {
       id: this.id,
       date: startDateCopy,
-      name : `${this.name} ${this.lastName}`,
+      name: `${this.name} ${this.lastName}`,
       taskCount: filteredTasks.length,
-      timeSpent : timeSpent,
-      tasks:filteredTasks,
+      timeSpent: timeSpent,
+      tasks: filteredTasks,
       workTime,
-      result,
+      result: workTime > 0 ? (timeSpent / workTime * 100).toFixed(2) : '0.00',
     };
+
+    this._calculationCache.set(cacheKey, result);
+    return result;
   }
 
-  toTableRow(dateStart, dateEnd){
-    const tasks = this.getFilteredTasks(dateStart, dateEnd)
+  // Оптимизированный toTableRow
+  toTableRow(dateStart, dateEnd) {
+    const cacheKey = `table_row_range_${dateStart}_${dateEnd}`;
+    
+    if (this._calculationCache.has(cacheKey)) {
+      return this._calculationCache.get(cacheKey);
+    }
 
-    const timeEstimate = tasks.reduce((sum, task) => {
-      return sum + task.getTimeEstimateHours();
-    }, 0);
-    const timeSpent = tasks.reduce((sum, task) => {
-      return sum + task.getTimeSpentHours(dateStart, dateEnd);
-    }, 0);
+    const filteredTasks = this.tasks.filter(task => 
+      task.isInDateRange(dateStart, dateEnd)||
+      task.elapsedItems.length===0
+    );
+    const timeEstimate = filteredTasks.reduce((sum, task) => 
+      sum + task.getTimeEstimateHours(), 0);
+    const timeSpent = filteredTasks.reduce((sum, task) => 
+      sum + task.getTimeSpentHours(dateStart, dateEnd), 0);
 
-    const resultTime = timeEstimate - timeSpent
-
-    const filteredTasks = tasks.map(task=>{
-      const taskTimeSpent = task.getTimeSpentHours(dateStart, dateEnd);
-      const taskTimeEstimate = task.getTimeEstimateHours();
-      const taskResult = taskTimeEstimate-taskTimeSpent
-      return {
-        title:task.title,
-        timeSpent : taskTimeSpent,
-        timeEstimate:taskTimeEstimate,
-        resultTime:taskResult,
-      }
-    })
-
-    return {
+    const result = {
       id: this.id,
-      name : `${this.name} ${this.lastName}`,
+      name: `${this.name} ${this.lastName}`,
       taskCount: filteredTasks.length,
-      timeSpent : timeSpent,
-      tasks:filteredTasks,
-      timeEstimate,
-      resultTime,
+      timeSpent: timeSpent,
+      timeEstimate: timeEstimate,
+      resultTime: timeEstimate - timeSpent,
+      tasks: filteredTasks.map(task => ({
+        title: task.title,
+        timeSpent: task.getTimeSpentHours(dateStart, dateEnd),
+        timeEstimate: task.getTimeEstimateHours(),
+        resultTime: task.getTimeEstimateHours() - task.getTimeSpentHours(dateStart, dateEnd)
+      }))
     };
+
+    this._calculationCache.set(cacheKey, result);
+    return result;
   }
 }

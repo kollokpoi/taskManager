@@ -43,7 +43,18 @@ export const exportToExcel = async (data, fileName = 'export.xlsx') => {
       worksheet.addRow(row);
       currentRow++;
     }
-    
+    if(data.totals && data.totals.length>0){
+      const rowLength = data.columns.length
+      const row = Array(rowLength).fill('');
+      row[0] = "Итого:"
+      for(let i = rowLength-data.totals.length,j=0; 
+        i<rowLength&&j<data.totals.length;
+        i++,j++){
+
+        row[i] = data.totals[j]
+      }
+      worksheet.addRow(row);
+    }
     // 6. Автоширина колонок
     data.columns.forEach((col, idx) => {
       const column = worksheet.getColumn(idx + 1);

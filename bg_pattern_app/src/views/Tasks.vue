@@ -153,8 +153,8 @@
   const loading = ref(true);
   const tasks = ref([]);
   const selectedEmployee = ref(null);
-  const startDate = ref(globalDates.startDate);
-  const endDate = ref(globalDates.endDate);
+  const startDate = ref(globalDates.dates.start);
+  const endDate = ref(globalDates.dates.end);
   const skeletonData = Array(5).fill({});
 
   const dealId = ref();

@@ -3,140 +3,122 @@ import { Task } from '../models/task.js';
 import { TaskElapsedItem } from '../models/TaskElapsedItem.js';
 
 export class TaskService {
+  constructor() {
+    this.tasksCache = new Map();
+    this.elapsedItemsCache = new Map();
+  }
+
+  /**
+   * Получает все задачи
+   */
   async getTasks() {
-    try {
-      const response = await bitrixService.callMethod('tasks.task.list', {
-        select: ["ID", "RESPONSIBLE_ID", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "DATE_START","DEADLINE","TITLE","STATUS","CREATED_DATE"],
-        order: { 'ID': 'DESC' }
-      });
-
-      const tasks = this._extractTasks(response);
-      const tasksWithElapsed = await Promise.all(
-        tasks.map(async (task) => {
-          try {
-            const elapsedItems = await this.getTaskElapsedItems(task.id);
-            return { ...task, elapsedItems };
-          } catch (error) {
-            console.error(`Ошибка загрузки периодов задачи ${task.id}:`, error);
-            return task;
-          }
-        })
-      );
-      
-      return tasksWithElapsed.map(taskData => new Task(taskData));
-      
-    } catch (error) {
-      console.error(`Ошибка получения задач сделки ${dealId}:`, error);
-      throw error;
-    }
+    return this._fetchTasks({});
   }
+
+  /**
+   * Получает задачи сделки
+   */
   async getDealTasks(dealId) {
-    try {
-      const response = await bitrixService.callMethod('tasks.task.list', {
-        filter: { "UF_CRM_TASK": `D_${dealId}` },
-        select: ["ID", "RESPONSIBLE_ID", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "DATE_START","DEADLINE","TITLE","STATUS","CREATED_DATE"],
-        order: { 'ID': 'DESC' }
-      });
-      const tasks = this._extractTasks(response);
-      const tasksWithElapsed = await Promise.all(
-        tasks.map(async (task) => {
-          try {
-            const elapsedItems = await this.getTaskElapsedItems(task.id);
-            return { ...task, elapsedItems };
-          } catch (error) {
-            console.error(`Ошибка загрузки периодов задачи ${task.id}:`, error);
-            return task;
-          }
-        })
-      );
-      
-      return tasksWithElapsed.map(taskData => new Task(taskData));
-      
-    } catch (error) {
-      console.error(`Ошибка получения задач сделки ${dealId}:`, error);
-      throw error;
+    const cacheKey = `deal_tasks_${dealId}`;
+    
+    if (this.tasksCache.has(cacheKey)) {
+      return this.tasksCache.get(cacheKey);
     }
+
+    const tasks = await this._fetchTasks({
+      filter: { "UF_CRM_TASK": `D_${dealId}` }
+    });
+
+    this.tasksCache.set(cacheKey, tasks);
+    setTimeout(() => this.tasksCache.delete(cacheKey), 300000);
+    
+    return tasks;
   }
 
+  /**
+   * Получает задачи пользователя
+   */
   async getUserTasks(userId, loadElapsedItems = true) {
-    try {
-      const response = await bitrixService.callMethod('tasks.task.list', {
-        filter: { "RESPONSIBLE_ID": userId },
-        select: ["ID", "RESPONSIBLE_ID", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "DATE_START","DEADLINE","TITLE","STATUS","CREATED_DATE","CLOSED_BY"],
-        order: { 'ID': 'DESC' }
-      });
-      const tasks = this._extractTasks(response);
-      const tasksWithElapsed = loadElapsedItems ? 
-      await Promise.all(
-        tasks.map(async (task) => {
-          try {
-            const elapsedItems = await this.getTaskElapsedItems(task.id);
-            return { ...task, elapsedItems };
-          } catch (error) {
-            console.error(`Ошибка загрузки периодов задачи ${task.id}:`, error);
-            return task;
-          }
-        })
-      ) : tasks
-      
-      return tasksWithElapsed.map(taskData => new Task(taskData));
-      
-    } catch (error) {
-      console.error(`Ошибка получения задач сделки ${dealId}:`, error);
-      throw error;
+    const cacheKey = `user_tasks_${userId}_${loadElapsedItems}`;
+    
+    if (this.tasksCache.has(cacheKey)) {
+      return this.tasksCache.get(cacheKey);
     }
+
+    const tasks = await this._fetchTasks({
+      filter: { "RESPONSIBLE_ID": userId },
+      select: [...this._getBaseSelect(), "CLOSED_BY"]
+    }, loadElapsedItems);
+
+    this.tasksCache.set(cacheKey, tasks);
+    setTimeout(() => this.tasksCache.delete(cacheKey), 300000);
+    
+    return tasks;
   }
 
+  /**
+   * Получает задачи проекта
+   */
   async getProjectTasks(projectId) {
-    try {
-      const response = await bitrixService.callMethod('tasks.task.list', {
-        filter: { "GROUP_ID": projectId },
-        select: ["ID", "RESPONSIBLE_ID", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "DATE_START","DEADLINE","TITLE","STATUS","CREATED_DATE"],
-        order: { 'ID': 'DESC' }
-      });
-      const tasks = this._extractTasks(response);
-      const tasksWithElapsed = await Promise.all(
-        tasks.map(async (task) => {
-          try {
-            const elapsedItems = await this.getTaskElapsedItems(task.id);
-            return { ...task, elapsedItems };
-          } catch (error) {
-            console.error(`Ошибка загрузки периодов задачи ${task.id}:`, error);
-            return task;
-          }
-        })
-      );
-      return tasksWithElapsed.map(taskData => new Task(taskData));
-      
-    } catch (error) {
-      console.error(`Ошибка получения задач сделки ${dealId}:`, error);
-      throw error;
+    const cacheKey = `project_tasks_${projectId}`;
+    
+    if (this.tasksCache.has(cacheKey)) {
+      return this.tasksCache.get(cacheKey);
     }
+
+    const tasks = await this._fetchTasks({
+      filter: { "GROUP_ID": projectId }
+    });
+
+    this.tasksCache.set(cacheKey, tasks);
+    setTimeout(() => this.tasksCache.delete(cacheKey), 300000);
+    
+    return tasks;
   }
 
+  /**
+   * Получает периоды времени задачи
+   */
   async getTaskElapsedItems(taskId) {
+    const cacheKey = `elapsed_items_${taskId}`;
+    
+    if (this.elapsedItemsCache.has(cacheKey)) {
+      return this.elapsedItemsCache.get(cacheKey);
+    }
+
     try {
       const response = await bitrixService.callMethod('task.elapseditem.getlist', {
-        "TASKID": taskId,
+        TASKID: taskId
       });
-      return response.map(item => new TaskElapsedItem(item));
+
+      const items = (Array.isArray(response) ? response : response.result || [])
+        .map(item => new TaskElapsedItem(item));
+
+      this.elapsedItemsCache.set(cacheKey, items);
+      setTimeout(() => this.elapsedItemsCache.delete(cacheKey), 300000);
+      
+      return items;
       
     } catch (error) {
       console.error(`Ошибка получения периодов задачи ${taskId}:`, error);
-      throw error;
+      return [];
     }
   }
 
+  /**
+   * Изменяет ответственного задачи
+   */
   async changeTaskResponsible(taskId, newResponsibleId) {
     try {
       const response = await bitrixService.callMethod('tasks.task.update', {
         taskId: taskId,
-        fields: {
-          "RESPONSIBLE_ID": newResponsibleId
-        }
+        fields: { "RESPONSIBLE_ID": newResponsibleId }
       });
+
+      // Очищаем кэш связанных данных
+      this.tasksCache.clear();
+      this.elapsedItemsCache.clear();
       
-      console.log('Ответственный изменен:', response);
       return response;
       
     } catch (error) {
@@ -144,15 +126,72 @@ export class TaskService {
       throw error;
     }
   }
-  
+
+  /**
+   * Загружает задачи с периодами
+   * @private
+   */
+  async _fetchTasks(params, loadElapsedItems = true) {
+    try {
+      const response = await bitrixService.callMethod('tasks.task.list', {
+        order: { 'ID': 'DESC' },
+        select: this._getBaseSelect(),
+        ...params
+      });
+
+      const tasksData = this._extractTasks(response);
+      
+      if (!loadElapsedItems) {
+        return tasksData.map(data => new Task(data));
+      }
+
+      // Параллельная загрузка периодов для всех задач
+      const tasksWithElapsed = await Promise.all(
+        tasksData.map(async taskData => {
+          try {
+            const elapsedItems = await this.getTaskElapsedItems(taskData.id);
+            return { ...taskData, elapsedItems };
+          } catch {
+            return taskData;
+          }
+        })
+      );
+
+      return tasksWithElapsed.map(data => new Task(data));
+      
+    } catch (error) {
+      console.error('Ошибка получения задач:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Базовый набор полей
+   * @private
+   */
+  _getBaseSelect() {
+    return ["ID", "RESPONSIBLE_ID", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", 
+            "DATE_START", "DEADLINE", "TITLE", "STATUS", "CREATED_DATE","CLOSED_DATE"];
+  }
+
+  /**
+   * Извлекает задачи из ответа
+   * @private
+   */
   _extractTasks(response) {
-    if (response.result?.tasks) return response.result.tasks;
-    if (response.tasks) return response.tasks;
+    if (response?.tasks) return response.tasks;
+    if (response?.result?.tasks) return response.result.tasks;
     if (Array.isArray(response)) return response;
-    if (response.result && Array.isArray(response.result)) return response.result;
-    
-    console.warn('Неизвестный формат ответа задач:', response);
+    if (response?.result && Array.isArray(response.result)) return response.result;
     return [];
+  }
+
+  /**
+   * Очищает кэш задач
+   */
+  clearCache() {
+    this.tasksCache.clear();
+    this.elapsedItemsCache.clear();
   }
 }
 

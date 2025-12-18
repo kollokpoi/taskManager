@@ -24,3 +24,5 @@ export const getTaskResultColorClasses=(task)=>{
 
     return classes.join(' ');
 }
+
+export const getSmallerThanNullClasses=(value)=>value<0?'text-red-200':'text-green-400'

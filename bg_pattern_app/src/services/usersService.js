@@ -1,4 +1,3 @@
-// src/services/userService.js
 import { User } from '../models/user.js';
 import bitrixService from './bitrixService.js';
 import { taskService } from './tasksService.js';
@@ -6,44 +5,34 @@ import { taskService } from './tasksService.js';
 export class UserService {
   constructor() {
     this.usersCache = null;
-    this.cacheTimestamp = null;
-    this.cacheDuration = 5 * 60 * 1000; // 5 минут
+    this.tasksCache = new Map();
+    this.CACHE_DURATION = 5 * 60 * 1000;
   }
 
+  /**
+   * Получает всех пользователей
+   */
   async getUsers() {
-    if (this.usersCache && this.cacheTimestamp && 
-        Date.now() - this.cacheTimestamp < this.cacheDuration) {
-      return this.usersCache;
+    if (this.usersCache && this._isCacheValid(this.usersCache.timestamp)) {
+      return this.usersCache.data;
     }
 
     try {
-      const response = await bitrixService.callMethod('user.get', {
-        filter: { 'ACTIVE': true },
-        select: ['ID', 'NAME', 'LAST_NAME']
+      const [usersData, allUsersTasks] = await Promise.all([
+        this._fetchUsers(),
+        this._fetchAllUsersTasks()
+      ]);
+
+      const users = usersData.map(userData => {
+        const tasks = allUsersTasks.get(userData.ID.toString()) || [];
+        return new User({ ...userData, tasks });
       });
 
-      const usersData = response.result || response;
-      if (!Array.isArray(usersData)) {
-        console.error('Неверный формат ответа пользователей:', response);
-        return [];
-      }
-
-      const users = await Promise.all(
-        usersData.map(async (userData)=>{
-            try {
-              const tasks = await taskService.getUserTasks(userData.ID);
-              return new User({ ...userData, tasks: tasks });
-            } catch (error) {
-              console.error(`Ошибка загрузки задач для пользователя ${userData.ID}:`, error);
-              return new User(userData); 
-            }
-        })
-      )
-
-      // Сохраняем в кэш
-      this.usersCache = users;
-      this.cacheTimestamp = Date.now();
-
+      this.usersCache = { 
+        data: users, 
+        timestamp: Date.now() 
+      };
+      
       return users;
 
     } catch (error) {
@@ -51,40 +40,82 @@ export class UserService {
       throw error;
     }
   }
-  // Получить пользователя по ID
+
+  /**
+   * Получает пользователя по ID
+   */
   async getUserById(userId) {
     const users = await this.getUsers();
     return users.find(user => user.id == userId) || null;
   }
 
-  // Получить текущего пользователя
+  /**
+   * Получает текущего пользователя
+   */
   async getCurrentUser() {
     try {
       const user = await bitrixService.getCurrentUser();
-      return {
+      return new User({
         id: user.ID,
-        name: `${user.NAME} ${user.LAST_NAME}`.trim() || user.EMAIL,
-        email: user.EMAIL,
-        position: user.WORK_POSITION || ''
-      };
+        name: user.NAME,
+        lastName: user.LAST_NAME
+      });
     } catch (error) {
       console.error('Ошибка получения текущего пользователя:', error);
       throw error;
     }
   }
 
-  // Поиск пользователей
-  async searchUsers(query) {
-    const users = await this.getUsers();
-    
-    if (!query) return users;
-    
-    const lowerQuery = query.toLowerCase();
-    return users.filter(user => 
-      user.name.toLowerCase().includes(lowerQuery) ||
-      user.email.toLowerCase().includes(lowerQuery) ||
-      user.position.toLowerCase().includes(lowerQuery)
-    );
+  /**
+   * Загружает пользователей из Битрикс
+   * @private
+   */
+  async _fetchUsers() {
+    const response = await bitrixService.callMethod('user.get', {
+      filter: { 'ACTIVE': true },
+      select: ['ID', 'NAME', 'LAST_NAME']
+    });
+
+    return response.result || response || [];
+  }
+
+  /**
+   * Параллельно загружает задачи для всех пользователей
+   * @private
+   */
+  async _fetchAllUsersTasks() {
+    const users = await this._fetchUsers();
+    const tasksMap = new Map();
+    const batchSize = 5;
+
+    for (let i = 0; i < users.length; i += batchSize) {
+      const batch = users.slice(i, i + batchSize);
+      const batchPromises = batch.map(async user => ({
+        userId: user.ID.toString(),
+        tasks: await taskService.getUserTasks(user.ID).catch(() => [])
+      }));
+      
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(({ userId, tasks }) => tasksMap.set(userId, tasks));
+    }
+
+    return tasksMap;
+  }
+
+  /**
+   * Проверяет валидность кэша
+   * @private
+   */
+  _isCacheValid(timestamp) {
+    return timestamp && (Date.now() - timestamp) < this.CACHE_DURATION;
+  }
+
+  /**
+   * Очищает кэш пользователей
+   */
+  clearCache() {
+    this.usersCache = null;
+    this.tasksCache.clear();
   }
 }
 

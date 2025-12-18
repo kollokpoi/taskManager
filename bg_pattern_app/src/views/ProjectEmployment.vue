@@ -34,7 +34,7 @@
     v-if="!loading && projects.length > 0"
     class="overflow-x-auto mt-3">
       <DataTable
-        :value="filteredProjects"
+        :value="filteredProjects.tasks"
         responsiveLayout="scroll"
         class="p-datatable-sm"
         stripedRows
@@ -43,42 +43,60 @@
         :rowsPerPageOptions="[5, 10, 20, 50]"
         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
         currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел">
-          <Column field="projectName" header="Проект">
+          <Column field="projectName" header="Проект" sortable>
               <template #body="{ data }">
                   <span class="font-medium">{{ data.projectName }}</span>
               </template>
+              <template #footer>
+                <span class="font-bold">Итого:</span>
+              </template>
           </Column>
-          <Column field="title" header="Задача" >
+          <Column field="title" header="Задача" sortable>
               <template #body="{ data }">
                   <span class="font-medium">{{ data.title }}</span>
               </template>
           </Column>
-          <Column field="responsibleName" header="Исполнитель">
+          <Column field="responsibleName" header="Исполнитель" sortable>
               <template #body="{ data }">
                   <span class="font-medium">{{ data.responsibleName }}</span>
               </template>
           </Column>
-          <Column field="dateCreate" header="Дата постановки">
+          <Column field="dateCreate" header="Дата постановки" sortable>
               <template #body="{ data }">
                   <span class="font-medium">{{ formatTableDate(data.dateCreate) }}</span>
               </template>
           </Column>
-          <Column field="planedTime" header="Планируемое время">
+          <Column field="planedTime" header="Планируемое время" sortable>
               <template #body="{ data }">
-                  <span class="font-medium">{{ formatHoursToHHMM(data.planedTime)}}</span>
+                  <span class="font-medium">{{ formatHoursToHHMM(data.timeEstimate)}}</span>
+              </template>
+              <template #footer>
+                <span class="font-bold">
+                  {{ formatHoursToHHMM(filteredProjects.totals?.plannedTotal || 0) }}
+                </span>
               </template>
           </Column>
-          <Column field="timeSpent" header="Фактическое время">
+          <Column field="timeSpent" header="Фактическое время" sortable>
               <template #body="{ data }">
                   <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent) }}</span>
               </template>
+              <template #footer>
+                <span class="font-bold">
+                  {{ formatHoursToHHMM(filteredProjects.totals?.actualTotal || 0) }}
+                </span>
+              </template>
           </Column>
-          <Column field="resultTime" header="Итого">
+          <Column field="resultTime" header="Итого" sortable>
               <template #body="{ data }">
                   <span :class="['font-medium',
                     getTaskResultColorClasses(data)]">
                     {{ formatHoursToHHMM(data.resultTime) }}
                   </span>
+              </template>
+              <template #footer>
+                <span :class="['font-bold', getSmallerThanNullClasses(filteredProjects.totals?.resultTotal || 0)]">
+                  {{ formatHoursToHHMM(filteredProjects.totals?.resultTotal || 0) }}
+                </span>
               </template>
           </Column>
       </DataTable>
@@ -145,7 +163,7 @@
   import { useGlobalDates } from '../utils/globalDates.js';
   import debounce from '../utils/debounce';
   import { projectService } from '../services/projectsService.js';
-  import { getTaskResultColorClasses } from '../utils/classGetters.js';
+  import { getTaskResultColorClasses,getSmallerThanNullClasses } from '../utils/classGetters.js';
 
   const globalDates = useGlobalDates();
 
@@ -225,7 +243,6 @@
 
     const users = Array.from(usersMap.values());
     users.sort((a, b) => a.name.localeCompare(b.name));
-
     return [
       { id: null, name: 'Все сотрудники' },
       ...users
@@ -246,8 +263,7 @@
       
       allTasks.push(...taskRows);
     });
-    console.log(allTasks)
-    return allTasks.filter(task => {
+    const filtered = allTasks.filter(task => {
       if (selectedProject.value && task.projectId !== selectedProject.value) {
         return false;
       }
@@ -256,6 +272,14 @@
       }
       return true;
     });
+    return {
+      tasks: filtered,
+      totals: {
+        plannedTotal: timeElapsed.value,
+        actualTotal: filtered.reduce((sum, task) => sum + task.timeSpent, 0),
+        resultTotal: timeElapsed.value - filtered.reduce((sum, task) => sum + task.timeSpent, 0)
+      }
+    };
   });
 
   const updateTimeElapsed = debounce((event) => {
@@ -276,7 +300,8 @@
         ? `Планируемое время проекта: ${timeElapsed.value} ч`
         : 'Планируемое время проекта: не указано'
     ];
-    
+    const totals = []
+
     const columns = [
       { title: "Проект", values: [] },
       { title: "Задача", values: [] },
@@ -284,19 +309,26 @@
       { title: "Дата постановки", values: [] },
       { title: "Планируемое время", values: [] },
       { title: "Фактическое время", values: [] },
+      { title: "Итого", values: [] },
     ];
     
-    if(filteredProjects.value && filteredProjects.value.length > 0){
-      filteredProjects.value.forEach(project => {
+    if(filteredProjects.value && filteredProjects.value.tasks && filteredProjects.value.tasks.length > 0){
+      filteredProjects.value.tasks.forEach(project => {
         columns[0].values.push(project.projectName || '');
         columns[1].values.push(project.title || '');
         columns[2].values.push(project.responsibleName || '');
         columns[3].values.push(formatTableDate(project.dateCreate));
-        columns[4].values.push(formatHoursToHHMM(project.planedTime));
+        columns[4].values.push(formatHoursToHHMM(project.timeEstimate));
         columns[5].values.push(formatHoursToHHMM(project.timeSpent));
+        columns[6].values.push(formatHoursToHHMM(project.resultTime));
       });
-      
-      return { title, filters, columns };
+      if(filteredProjects.value && filteredProjects.value.totals){
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.plannedTotal))
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.actualTotal))
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.resultTotal))
+      }
+      console.log("totals",totals)
+      return { title, filters, columns, totals };
     } else {
       return [];
     }

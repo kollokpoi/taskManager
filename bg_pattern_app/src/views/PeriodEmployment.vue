@@ -25,10 +25,10 @@
         @error="handleExportError"/>
     </div>
     <div
-      v-if="!loading && filteredUsers.length > 0"
+      v-if="!loading && filteredUsers.data.length > 0"
       class="overflow-x-auto mt-3">
         <DataTable
-          :value="filteredUsers"
+          :value="filteredUsers.data"
           responsiveLayout="scroll"
           class="p-datatable-sm"
           stripedRows
@@ -38,10 +38,13 @@
           @row-click="onRowClick"
           :rowsPerPageOptions="[5, 10, 20, 50]"
           paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-          currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел">
+          currentPageReportTemplate="Показано {first} - {last} из {totalRecords} записей">
             <Column field="date" header="Дата" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ formatTableDate(data.date) }}</span>
+                </template>
+                <template #footer>
+                  <span class="font-bold">Итого</span>
                 </template>
             </Column>
             <Column field="name" header="Имя сотрудника" sortable>
@@ -53,16 +56,24 @@
                 <template #body="{ data }">
                     <span class="font-medium">{{ data.taskCount }}</span>
                 </template>
+                <template #footer>
+                  <span>{{ filteredUsers.totals?.totalTaskCount || 0 }}</span>
+                </template>
             </Column>
             <Column field="timeSpent" header="Затраченное время" sortable>
                 <template #body="{ data }">
                     <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent)  }}</span>
                 </template>
+                <template #footer>
+                  <span>{{ formatHoursToHHMM(filteredUsers.totals?.totalTimeSpent || 0) }}</span>
+                </template>
             </Column>
             <Column field="workTime" header="Рабочее время " sortable>
                 <template #body="{ data }">
-                  
                     <span class="font-medium">{{ formatHoursToHHMM(data.workTime) }}</span>
+                </template>
+                <template #footer>
+                  <span>{{ formatHoursToHHMM(filteredUsers.totals?.totalWorkTime || 0) }}</span>
                 </template>
             </Column>
             <Column field="result" header="Итого/% затраченного времени" sortable>
@@ -72,11 +83,18 @@
                     ]"
                     > {{ data.result }}%</span>
                 </template>
+                <template #footer>
+                  <span :class="['font-bold', 
+                    filteredUsers.totals?.remainingPercent < 25 ? 'text-green-600' : 'text-red-600'
+                  ]">
+                    {{ filteredUsers.totals?.totalPercent || '0.00' }}%
+                  </span>
+                </template>
             </Column>
         </DataTable>
     </div>
     <div
-      v-if="loading || filteredUsers.length===0"
+      v-if="loading || filteredUsers.data.length===0"
       class="overflow-x-auto mt-3">
       <DataTable
         :value="skeletonData"
@@ -232,8 +250,6 @@
   };
 
   const filteredUsers = computed(() => {
-    console.log("users", users.value);
-    
     if (startDate.value && endDate.value) {
       const start = new Date(startDate.value);
       const end = new Date(endDate.value);
@@ -253,11 +269,36 @@
         usersArray.push(...sortedUsers) 
         currentDate.setDate(currentDate.getDate() + 1);
       }
-
-      return usersArray;
+      const totalTasks =  usersArray.reduce((sum, row) => sum + row.taskCount, 0);
+      const totalTimeSpent = usersArray.reduce((sum, row) => sum + row.timeSpent, 0);
+      const totalWorkTime = usersArray.reduce((sum, row) => sum + row.workTime, 0);
+      const totalPercent = totalWorkTime > 0 ? (totalTimeSpent / totalWorkTime * 100).toFixed(2) : '0.00';
+      const remainingPercent = totalWorkTime > 0 ? (100 - parseFloat(totalPercent)).toFixed(2) : '0.0'
+      console.log({
+        data: usersArray,
+        totals: {
+          totalTasks,
+          totalTimeSpent,
+          totalWorkTime,
+          totalPercent,
+          remainingPercent,
+          totalTaskCount: usersArray.reduce((sum, row) => sum + row.taskCount, 0)
+        }
+      })
+      return {
+      data: usersArray,
+      totals: {
+        totalTasks,
+        totalTimeSpent,
+        totalWorkTime,
+        totalPercent,
+        remainingPercent,
+        totalTaskCount: usersArray.reduce((sum, row) => sum + row.taskCount, 0)
+      }
+    };
       
     } else {
-      return [];
+      return { data: [], totals: null };
     }
   });
   
@@ -327,7 +368,8 @@
         : 'Сотрудник: Все сотрудники',
       `Рабочее время в день: ${workingHours.value} ч`
     ];
-    
+    const totals = []
+
     const columns = [
       { title: "Дата", values: [] },
       { title: "Имя сотрудника", values: [] },
@@ -338,7 +380,7 @@
     ];
     
     if(filteredUsers.value && filteredUsers.value.length > 0){
-      filteredUsers.value.forEach(user => {
+      filteredUsers.value.data.forEach(user => {
         columns[0].values.push(formatTableDate(user.date));
         columns[1].values.push(user.name || '');
         columns[2].values.push(user.taskCount || 0);
@@ -347,7 +389,14 @@
         columns[5].values.push(`${user.result}%`);
       });
       
-      return { title, filters, columns };
+      if(filteredProjects.value && filteredProjects.value.totals){
+        totals.push( filteredProjects.value.totals.totalTasks)
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.plannedTotal))
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.actualTotal))
+        totals.push( formatHoursToHHMM(filteredProjects.value.totals.resultTotal))
+      }
+
+      return { title, filters, columns,totals };
     } else {
       return [];
     }

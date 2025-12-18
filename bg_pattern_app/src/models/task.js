@@ -4,7 +4,7 @@ import { getStatusName } from '../constants/taskStatuses.js';
 export class Task {
   constructor(data) {
     this.id = data.id || data.ID;
-    this.title = data.title || data.TITLE || "Без названия"
+    this.title = data.title || data.TITLE || "Без названия";
     this.responsibleId = data.responsibleId || data.RESPONSIBLE_ID || data.responsible?.id;
     this.responsibleName = data.responsibleName || data.responsible?.name || 'Не указан';
     this.timeSpent = parseInt(data.timeSpent || data.timeSpentInLogs || data.TIME_SPENT_IN_LOGS) || 0;
@@ -12,59 +12,82 @@ export class Task {
     this.dateStart = data.dateStart || data.DATE_START || null;
     this.deadline = data.deadline || data.DEADLINE;
     this.elapsedItems = (data.elapsedItems || []).map(item => new TaskElapsedItem(item));
-    this.statusId = parseInt(data.status||data.STATUS)||0
+    this.statusId = parseInt(data.status||data.STATUS)||0;
     this.createdDate = data.createdDate || null;
-    this.closedBy = data.closedBy || null
+    this.closedBy = data.closedBy || null;
+    this.closedDate = data.closedDate || data.CLOSED_DATE || null;
+    
+    // Кэш для ускорения расчетов
+    this._filteredCache = new Map();
+    this._calculationCache = new Map();
   }
 
-  // Добавляем периоды времени
-  addElapsedItems(items) {
-    const itemsArray = items.map(item => new TaskElapsedItem(item));
-    console.log("itemsArray")
-    console.log({
-      id:this.id,
-      itemsArray
-    })
-    this.elapsedItems = itemsArray
+  // Оптимизированная фильтрация с кэшированием
+  isInDateRange(startDate, endDate) {
+    const cacheKey = `range_${startDate}_${endDate}`;
+    
+    if (this._filteredCache.has(cacheKey)) {
+      return this._filteredCache.get(cacheKey);
+    }
+
+    const result = this.elapsedItems.some(item => 
+      item.isInDateRange(startDate, endDate)
+    );
+    
+    this._filteredCache.set(cacheKey, result);
+    return result;
   }
 
-  // Полное время (из поля или из items)
+  // Оптимизированный расчет времени
   getTimeSpentHours(startDate = null, endDate = null) {
+    const cacheKey = `time_spent_${startDate}_${endDate}`;
+    
+    if (this._calculationCache.has(cacheKey)) {
+      return this._calculationCache.get(cacheKey);
+    }
+
     const filteredItems = this.elapsedItems.filter(item => 
       item.isInDateRange(startDate, endDate)
     );
 
-    return filteredItems.reduce((sum, item) => sum + item.getHours(), 0);
+    const result = filteredItems.reduce((sum, item) => sum + item.seconds, 0) / 3600;
+    this._calculationCache.set(cacheKey, result);
+    return result;
   }
 
   getTimeEstimateHours() {
     return this.timeEstimate / 3600;
   }
 
-  hasElapsedItemsInPeriod(startDate = null, endDate = null) {
-    return this.elapsedItems.some(item => item.isInDateRange(startDate, endDate));
-  }
+  // ВАЖНО: Метод toTableRow используется в компонентах!
+  toTableRow(startDate, endDate, employeeId = null, filter = null) {
+    const cacheKey = `table_row_${startDate}_${endDate}`;
+    
+    if (this._calculationCache.has(cacheKey)) {
+      return this._calculationCache.get(cacheKey);
+    }
 
-  // Для обратной совместимости
-  isInDateRange(startDate, endDate) {
-    return this.elapsedItems.some(item => item.isInDateRange(startDate, endDate));
-  }
-  toTableRow(startDate, endDate,employeeId=null,filter=null){
     const timeSpent = this.getTimeSpentHours(startDate, endDate);
-    const resultTime = this.timeEstimate/3600 - timeSpent
-    return {
+    const timeEstimateHours = this.getTimeEstimateHours();
+    const resultTime = timeEstimateHours - timeSpent;
+    
+    const result = {
       id: this.id,
-      title : this.title,
-      responsibleId : this.responsibleId,
-      responsibleName : this.responsibleName,
-      timeSpent : timeSpent,
-      timeEstimate : this.timeEstimate/3600,
-      deadline:this.deadline,
-      resultTime,
-      status:getStatusName(this.statusId),
-      statusId:this.statusId,
-      dateStart:this.dateStart,
-      dateCreate:this.createdDate
+      title: this.title,
+      responsibleId: this.responsibleId,
+      responsibleName: this.responsibleName,
+      timeSpent: timeSpent,
+      timeEstimate: timeEstimateHours,
+      deadline: this.deadline,
+      resultTime: resultTime,
+      status: getStatusName(this.statusId),
+      statusId: this.statusId,
+      dateStart: this.dateStart,
+      dateCreate: this.createdDate,
+      hasElapsedItems: this.elapsedItems.length > 0
     };
+
+    this._calculationCache.set(cacheKey, result);
+    return result;
   }
 }
