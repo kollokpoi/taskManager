@@ -62,6 +62,7 @@ export class Task {
       deadline:this.deadline,
       resultTime,
       status:getStatusName(this.statusId),
+      statusId:this.statusId,
       dateStart:this.dateStart,
       dateCreate:this.createdDate
     };

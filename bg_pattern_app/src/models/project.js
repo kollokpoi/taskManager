@@ -8,8 +8,10 @@ export class Project{
         this.description = data.description || data.DESCRIPTION || "Без описания";
         this.dateCreate = data.dateCreate || data.DATE_CREATE
         this.active = data.active || data.ACTIVE
-        this.tasks = (data.tasks || []).map(item => new Task(item));
-        this.users = (data.users || []).map(item => new User(item));
+        this.tasks = (data.tasks || []);
+        this.users = (data.users || []);
+        console.log("dataTasks",data.tasks)
+        console.log("projectTasks",this.tasks)
     }
 
     getTimeSpentHours(startDate = null, endDate = null) {
@@ -24,13 +26,13 @@ export class Project{
 
     toTableRows(startDate,endDate, planedTime){
         const tasks = this.tasks.map(task=>task.toTableRow(startDate,endDate))
-        console.log("tasks",tasks)
         return tasks.map(task=>{
             return {
                 ...task,
                 projectName:this.name,
                 planedTime,
-                projectId:this.id
+                projectId:this.id,
+                resultTime:planedTime-task.timeSpent
             }
         })
     }

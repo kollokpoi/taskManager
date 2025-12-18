@@ -106,7 +106,6 @@ export class TaskService {
           }
         })
       );
-      
       return tasksWithElapsed.map(taskData => new Task(taskData));
       
     } catch (error) {

@@ -66,9 +66,9 @@
             <span
               :class="[
                 'font-medium',
-                data.resultTime < 0 ? 'text-red-600' : 'text-green-600',
-              ]"
-            >
+                getTaskResultColorClasses(data)
+              ]">
+
               {{ formatHoursToHHMM(data.resultTime) }}
             </span>
           </template>
@@ -80,7 +80,13 @@
         </Column>
         <Column field="status" header="Статус" sortable>
           <template #body="{ data }">
-            <span class="font-medium">{{ data.status }}</span>
+            <span          
+              :class="[
+                'font-medium',
+                getTaskResultColorClasses(data)
+              ]">
+              {{ data.status }}
+            </span>
           </template>
         </Column>
       </DataTable>
@@ -139,6 +145,7 @@
   import DateRangePicker from "../components/DateRangePicker.vue";
   import ExcelCreate from "../components/ExcelCreate.vue";
   import { useGlobalDates } from '../utils/globalDates.js';
+  import { getTaskResultColorClasses } from "../utils/classGetters.js";
   const globalDates = useGlobalDates();
 
   const route = useRoute();

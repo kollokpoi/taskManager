@@ -68,7 +68,7 @@ export class User {
       return sum + task.getTimeSpentHours(dateStart, dateEnd);
     }, 0);
 
-    const result = timeEstimate - timeSpent
+    const resultTime = timeEstimate - timeSpent
 
     const filteredTasks = tasks.map(task=>{
       const taskTimeSpent = task.getTimeSpentHours(dateStart, dateEnd);
@@ -78,7 +78,7 @@ export class User {
         title:task.title,
         timeSpent : taskTimeSpent,
         timeEstimate:taskTimeEstimate,
-        result:taskResult,
+        resultTime:taskResult,
       }
     })
 
@@ -89,7 +89,7 @@ export class User {
       timeSpent : timeSpent,
       tasks:filteredTasks,
       timeEstimate,
-      result,
+      resultTime,
     };
   }
 }

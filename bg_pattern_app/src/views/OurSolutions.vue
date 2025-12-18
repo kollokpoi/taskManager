@@ -20,13 +20,8 @@
             <Button
               label="Связаться с нами"
               icon="pi pi-envelope"
-              rounded />
-            <Button
-              label="Смотреть демо"
-              icon="pi pi-play"
               rounded
-              outlined
-              class="text-white" />
+              @click="goToSubmitIdea" />
           </div>
         </div>
       </div>
@@ -37,7 +32,7 @@
       <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div class="w-full md:w-auto">
           <span class="p-input-icon-left w-full md:w-64">
-            <i class="pi pi-search text-gray-400"></i>
+            <i class="text-gray-400"></i>
             <InputText
               v-model="searchQuery"
               placeholder="Поиск решений..."
@@ -82,7 +77,7 @@
                 <img
                   :src="solution.image"
                   :alt="solution.title"
-                  class="w-full h-56 object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                  class="w-4/5 h-[280px] object-cover mx-auto transform group-hover:scale-105 transition-transform duration-500" />
                 <div
                   class="absolute top-0 right-0 bg-primary px-3 py-1 rounded-bl-lg text-white text-sm">
                   {{ solution.category }}
@@ -173,29 +168,8 @@
             icon="pi pi-comments"
             rounded
             size="large"
-            severity="success" />
-          <Button
-            label="Посмотреть все услуги"
-            icon="pi pi-list"
-            rounded
-            size="large"
-            outlined
-            class="text-white" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Секция клиентов -->
-    <div class="bg-white py-16">
-      <div class="container mx-auto px-6">
-        <h2 class="text-2xl font-bold text-gray-800 text-center mb-8">Нам доверяют</h2>
-        <div class="flex flex-wrap justify-center items-center gap-8 opacity-70">
-          <div
-            v-for="i in 6"
-            :key="i"
-            class="w-32 h-12 bg-gray-200 rounded flex items-center justify-center">
-            Клиент {{ i }}
-          </div>
+            severity="success"
+            @click="goToSubmitIdea" />
         </div>
       </div>
     </div>
@@ -203,124 +177,53 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+
+const goToSubmitIdea = () => {
+  router.push('/submit-idea'); // убедитесь, что этот путь совпадает с настройками вашего роутинга
+};
+
+// Поля для поиска и выбранной категории
 const searchQuery = ref('');
 const selectedCategory = ref(null);
 
+// Список категорий (обновлён под новые решения)
 const categories = [
   { id: null, name: 'Все' },
-  { id: 'analytics', name: 'Аналитика' },
+  { id: 'crm', name: 'CRM' },
   { id: 'automation', name: 'Автоматизация' },
-  { id: 'integration', name: 'Интеграция' },
+  { id: 'analytics', name: 'Аналитика' },
+  { id: 'task-management', name: 'Управление' },
 ];
 
-const solutions = [
-  {
-    id: 1,
-    title: 'Бизнес-аналитика Pro',
-    description:
-      'Комплексное решение для анализа данных и построения интерактивных дашбордов с возможностью прогнозирования тенденций рынка.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-chart-bar',
-    category: 'Аналитика',
-    categoryId: 'analytics',
-    clients: 120,
-    features: ['Интерактивные дашборды', 'Предиктивная аналитика', 'Интеграция с CRM-системами'],
-    tags: ['BI', 'Analytics', 'Dashboard'],
-    link: '/solutions/1',
-  },
-  {
-    id: 2,
-    title: 'Smart Workflow',
-    description:
-      'Автоматизация бизнес-процессов с использованием искусственного интеллекта и машинного обучения для оптимизации рабочих потоков.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-cog',
-    category: 'Автоматизация',
-    categoryId: 'automation',
-    clients: 85,
-    features: [
-      'ИИ для оптимизации процессов',
-      'Автоматические уведомления',
-      'Настраиваемые рабочие потоки',
-    ],
-    tags: ['AI', 'Workflow', 'Automation'],
-    link: '/solutions/2',
-  },
-  {
-    id: 3,
-    title: 'Интеграционная платформа',
-    description:
-      'Универсальное решение для быстрой и безопасной интеграции различных систем и сервисов в единую экосистему вашего бизнеса.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-share-alt',
-    category: 'Интеграция',
-    categoryId: 'integration',
-    clients: 150,
-    features: ['API интеграция', 'Единая экосистема', 'Низкокодовая платформа'],
-    tags: ['API', 'Integration', 'Ecosystem'],
-    link: '/solutions/3',
-  },
-  {
-    id: 4,
-    title: 'Система мониторинга',
-    description:
-      'Комплексное решение для мониторинга инфраструктуры, сетевого оборудования и веб-сервисов с функцией проактивного оповещения.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-desktop',
-    category: 'Аналитика',
-    categoryId: 'analytics',
-    clients: 75,
-    features: [
-      'Мониторинг в реальном времени',
-      'Система раннего предупреждения',
-      'Гибкая настройка триггеров',
-    ],
-    tags: ['Monitoring', 'Alerts', 'Infrastructure'],
-    link: '/solutions/4',
-  },
-  {
-    id: 5,
-    title: 'HR Автоматизация',
-    description:
-      'Платформа для автоматизации HR-процессов, включая найм, адаптацию, обучение и аттестацию персонала.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-users',
-    category: 'Автоматизация',
-    categoryId: 'automation',
-    clients: 90,
-    features: ['Автоматизация рекрутинга', 'Система онбординга', 'Аналитика эффективности'],
-    tags: ['HR', 'Recruitment', 'Onboarding'],
-    link: '/solutions/5',
-  },
-  {
-    id: 6,
-    title: 'API Gateway',
-    description:
-      'Централизованный шлюз API для управления доступом, мониторинга и защиты ваших API от несанкционированного использования.',
-    image: 'https://bg59.online/Apps/bg_pattern_app/images/logo.png',
-    icon: 'pi pi-shield',
-    category: 'Интеграция',
-    categoryId: 'integration',
-    clients: 110,
-    features: ['Управление доступом', 'Защита от DDoS атак', 'Аналитика использования API'],
-    tags: ['API', 'Security', 'Gateway'],
-    link: '/solutions/6',
-  },
-];
+// Реактивное хранилище решений (изначально пустое)
+const solutions = ref([]);
 
+// При монтировании компонента — загружаем данные с бэкенда (PHP)
+onMounted(async () => {
+  try {
+    // Укажите реальный путь к вашему PHP-скрипту, который отдаёт JSON
+    const response = await fetch('https://bg59.online/Apps/bg_pattern_app/api/get_solutions.php');
+    const data = await response.json();
+    solutions.value = data;
+  } catch (error) {
+    console.error('Ошибка при загрузке решений:', error);
+  }
+});
+
+// Вычисляемое свойство для фильтрации решений по поиску и категории
 const filteredSolutions = computed(() => {
-  return solutions.filter((solution) => {
-    // Фильтрация по поисковому запросу
+  return solutions.value.filter((solution) => {
+    // Поиск по названию и описанию
     const matchesSearch =
       searchQuery.value === '' ||
-      solution.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      solution.description.toLowerCase().includes(searchQuery.value.toLowerCase());
+      solution.title?.toLowerCase()?.includes(searchQuery.value.toLowerCase()) ||
+      solution.description?.toLowerCase()?.includes(searchQuery.value.toLowerCase());
 
-    // Фильтрация по категории
+    // Фильтрация по выбранной категории
     const matchesCategory =
       selectedCategory.value === null || solution.categoryId === selectedCategory.value;
 
@@ -328,10 +231,12 @@ const filteredSolutions = computed(() => {
   });
 });
 
+// Переход по ссылке (при нажатии "Подробнее")
 const goToSolution = (link) => {
-  router.push(link);
+  window.open(link, '_blank');
 };
 
+// Сброс поиска и выбранной категории
 const resetFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = null;

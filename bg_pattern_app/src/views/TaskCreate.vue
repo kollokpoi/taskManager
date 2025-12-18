@@ -49,9 +49,13 @@
                     <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent)  }}</span>
                 </template>
             </Column>
-            <Column field="result" header="Итого" sortable>
+            <Column field="resultTime" header="Итого" sortable>
                 <template #body="{ data }">
-                    <span class="font-medium">{{ formatHoursToHHMM(data.result)}}</span>
+                  <span :class="['font-medium',
+                      getTaskResultColorClasses(data)
+                    ]"> 
+                      {{ formatHoursToHHMM(data.resultTime) }}
+                    </span>
                 </template>
             </Column>
         </DataTable>
@@ -108,8 +112,6 @@
       @hide="closeDialog"
     >
       <div v-if="selectedRow" class="space-y-4">
-        
-        <!-- Основная информация -->
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div class="bg-gray-50 p-3 rounded">
             <div class="text-sm text-gray-500">Сотрудник</div>
@@ -132,7 +134,12 @@
             </div>
             <div class="bg-gray-50 p-3 rounded w-1/2">
               <div class="text-sm text-gray-500">Итого</div>
-              <div class="font-medium">{{ formatHoursToHHMM(selectedRow.result)}}</div>
+              <div 
+                :class="['font-medium',
+                getTaskResultColorClasses(selectedRow)
+                ]"> 
+                {{ formatHoursToHHMM(selectedRow.resultTime) }}
+              </div>
             </div>
           </div>
         </div>
@@ -163,14 +170,17 @@
                     <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent)  }}</span>
                 </template>
             </Column>
-            <Column field="result" header="Итого" sortable>
+            <Column field="resultTime" header="Итого" sortable>
                 <template #body="{ data }">
-                    <span class="font-medium"> {{ formatHoursToHHMM(data.result) }}</span>
+                    <span :class="['font-medium',
+                      getTaskResultColorClasses(data)
+                    ]"> 
+                      {{ formatHoursToHHMM(data.resultTime) }}
+                    </span>
                 </template>
             </Column>
         </DataTable>
 
-        <!-- Нет задач -->
         <div v-else class="text-center text-gray-500 py-4">
           Нет информации о задачах
         </div>
@@ -202,6 +212,7 @@
   import { useGlobalDates } from '../utils/globalDates.js';
   import { userService } from '../services/usersService.js';
   import { taskService } from '../services/tasksService.js';
+  import { getTaskResultColorClasses } from '../utils/classGetters.js';
 
   const globalDates = useGlobalDates();
 
@@ -287,8 +298,8 @@
       await taskService.changeTaskResponsible(taskId, newResponsibleId);
       
       await Promise.all([
-        loadUsers(),      // Перезагружаем сотрудников
-        loadUserTasks()   // Перезагружаем задачи текущего пользователя
+        loadUsers(),     
+        loadUserTasks()  
       ]);
       
       closeDialog();
@@ -330,7 +341,7 @@
         columns[1].values.push(user.taskCount || 0);
         columns[2].values.push(formatHoursToHHMM(user.timeEstimate));
         columns[3].values.push(formatHoursToHHMM(user.timeSpent));
-        columns[4].values.push(formatHoursToHHMM(user.result));
+        columns[4].values.push(formatHoursToHHMM(user.resultTime));
       });
       
       return { title, filters, columns };

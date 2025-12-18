@@ -26,7 +26,6 @@ export class ProjectService {
                             taskService.getProjectTasks(projectData.ID),
                             this.getProjectUsersWithDetails(projectData.ID)
                         ]);
-                        
                         return new Project({ 
                             ...projectData, 
                             tasks: tasks,

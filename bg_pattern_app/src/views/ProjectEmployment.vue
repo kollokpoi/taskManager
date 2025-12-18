@@ -73,6 +73,14 @@
                   <span class="font-medium">{{ formatHoursToHHMM(data.timeSpent) }}</span>
               </template>
           </Column>
+          <Column field="resultTime" header="Итого">
+              <template #body="{ data }">
+                  <span :class="['font-medium',
+                    getTaskResultColorClasses(data)]">
+                    {{ formatHoursToHHMM(data.resultTime) }}
+                  </span>
+              </template>
+          </Column>
       </DataTable>
   </div>
   <div
@@ -137,6 +145,7 @@
   import { useGlobalDates } from '../utils/globalDates.js';
   import debounce from '../utils/debounce';
   import { projectService } from '../services/projectsService.js';
+  import { getTaskResultColorClasses } from '../utils/classGetters.js';
 
   const globalDates = useGlobalDates();
 
@@ -237,6 +246,7 @@
       
       allTasks.push(...taskRows);
     });
+    console.log(allTasks)
     return allTasks.filter(task => {
       if (selectedProject.value && task.projectId !== selectedProject.value) {
         return false;

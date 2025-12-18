@@ -10,6 +10,9 @@ import ProjectEmployment from '../views/ProjectEmployment.vue';
 import TaskCreate from '../views/TaskCreate.vue';
 import AuthError from '../views/AuthError.vue';
 import instruction from '../views/instruction.vue';
+import Solutions from '../views/OurSolutions.vue'
+import Ideas from '../views/SubmitIdea.vue'
+
 
 const routes = [
   {
@@ -21,23 +24,23 @@ const routes = [
       { path: '/periodEmployment', name: 'periodEmployment', component: PeriodEmployment },
       { path: '/projectEmployment', name: 'projectEmployment', component: ProjectEmployment },
       { path: '/taskCreate', name: 'taskCreate', component: TaskCreate },
+      { path: '/solutions', name: 'solutions', component: Solutions },
+      {
+        path: '/reviews',
+        name: 'reviews',
+        beforeEnter(to, from, next) {
+          const url = 'https://www.bitrix24.ru/partners/partner/13927904/';
+          window.open(url, '_blank');
+          next(false);
+        },
+      },
+      { path: '/ideas', name: 'ideas', component: Ideas },
       { path: '/instruction', name: 'instruction', component: instruction },
       {
         path: '/auth-error',
         name: 'auth-error',
         component: AuthError,
         meta: { skipAuth: true }
-      },
-      {
-        path: '/reviews',
-        name: 'reviews',
-        beforeEnter(to, from, next) {
-          if (window.top !== window) {
-            window.top.location.href = 'https://doka-guide.vercel.app/css/background/';
-          } else {
-            window.location.href = 'https://doka-guide.vercel.app/css/background/';
-          }
-        },
       },
     ],
   },

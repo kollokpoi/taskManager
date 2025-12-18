@@ -16,7 +16,7 @@
           class="mr-4 w-64"
           @change="onUserChange"
         />
-        <InputNumber placeholder="Ставка"  @input="updateHours" :min="0" :max="24" :step="0.5"/>
+        <InputNumber placeholder="Рабочее время"  @input="updateHours" :min="0" :max="24" :step="0.5"/>
       </div>
       <ExcelCreate     
         :excelData="excelData"
@@ -67,7 +67,10 @@
             </Column>
             <Column field="result" header="Итого/% затраченного времени" sortable>
                 <template #body="{ data }">
-                    <span class="font-medium"> {{ data.result }}%</span>
+                    <span :class="['font-medium',
+                      data.result<=75?'text-red-200':''
+                    ]"
+                    > {{ data.result }}%</span>
                 </template>
             </Column>
         </DataTable>
@@ -143,8 +146,15 @@
             <div class="font-medium">{{ selectedRow.taskCount }}</div>
           </div>
           <div class="bg-gray-50 p-3 rounded">
-            <div class="text-sm text-gray-500">Затрачено времени</div>
-            <div class="font-medium">{{ formatHoursToHHMM(selectedRow.result) }}</div>
+            <div class="text-sm text-gray-500">Затраченное время</div>
+            <div class="font-medium">{{ formatHoursToHHMM(selectedRow.timeSpent)  }}</div>
+          </div>
+          <div class="bg-gray-50 p-3 rounded">
+            <div class="text-sm text-gray-500">Итого/%</div>
+            <div :class="[
+              'font-medium',
+              selectedRow.result<=75?'text-red-200':'']">
+              {{ selectedRow.result }}%</div>
           </div>
         </div>
         
@@ -197,7 +207,6 @@
   import { useGlobalDates } from '../utils/globalDates.js';
   import { userService } from '../services/usersService.js';
   import debounce from '../utils/debounce.js';
-
   const globalDates = useGlobalDates();
 
   const startDate = ref(globalDates.dates.start);
