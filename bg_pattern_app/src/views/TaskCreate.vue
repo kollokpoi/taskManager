@@ -8,7 +8,11 @@
           v-model:endDate="endDate"
         />
       </div>
-      <ExcelCreate :dataItems="filteredUsers" title="Учет времени задач/занятости/трудозатрат сотрудников"/>
+      <ExcelCreate     
+      :excelData="excelData"
+      fileName="Планирование_задач_сотрудников.xlsx"
+      @export="handleExportSuccess"
+      @error="handleExportError"/>
     </div>
     <div
       v-if="!loading && filteredUsers.length > 0"
@@ -305,7 +309,45 @@
       endDate.value = newVal;
     }
   });
+  
+  const excelData = computed(() => {
+    const title = "Распланировать задачи сотрудников";
+    const filters = [
+      `Период: ${formatTableDate(startDate.value)} - ${formatTableDate(endDate.value)}`
+    ];
+    
+    const columns = [
+      { title: "Сотрудник", values: [] },
+      { title: "Задачи", values: [] },
+      { title: "Время задач", values: [] },
+      { title: "Израсходовано фактически", values: [] },
+      { title: "Итого", values: [] },
+    ];
+    
+    if(filteredUsers.value && filteredUsers.value.length > 0){
+      filteredUsers.value.forEach(user => {
+        columns[0].values.push(user.name || '');
+        columns[1].values.push(user.taskCount || 0);
+        columns[2].values.push(formatHoursToHHMM(user.timeEstimate));
+        columns[3].values.push(formatHoursToHHMM(user.timeSpent));
+        columns[4].values.push(formatHoursToHHMM(user.result));
+      });
+      
+      return { title, filters, columns };
+    } else {
+      return [];
+    }
+  });
 
+  const handleExportSuccess = (eventData) => {
+    console.log('✅ Экспорт отчета по планированию успешен:', eventData);
+    // Можно добавить уведомление для пользователя
+  };
+
+  const handleExportError = (errorData) => {
+    console.error('❌ Ошибка экспорта отчета по планированию:', errorData);
+    // Можно добавить уведомление об ошибке
+  };
   onMounted( () => {
     loadUsers();
     loadUserTasks();

@@ -12,7 +12,11 @@
         @input="updateWage"
         />
       </div>
-      <ExcelCreate :dataItems="deals" title="Учет времени задач/занятости/трудозатрат сотрудников"/>
+      <ExcelCreate     
+      :excelData="excelData"
+      fileName="Отчет_по_сделкам.xlsx"
+      @export="handleExportSuccess"
+      @error="handleExportError"/>
     </div>
     <div
       v-if="!loading && dealsWithCosts.length > 0"
@@ -31,12 +35,7 @@
           currentPageReportTemplate="Показано {first} - {last} из {totalRecords} сделок">
           <Column field="name" header="Название" sortable>
             <template #body="{ data }">
-              <span 
-              :class="['font-medium',
-                  data.plannedTime===0?'text-yellow-200':
-                  data.resultTime<0?'text-red-200':
-                  isInWork(data.stageId)?'text-blue-400':'text-green-400'
-                ]">{{ data.name }}</span>
+              <span class="font-medium">{{ data.name }}</span>
             </template>
           </Column>
           <Column field="sum" header="Сумма" sortable>
@@ -60,7 +59,7 @@
             <template #body="{ data }">
               <span 
                 :class="['font-medium',
-                  data.resultTime<0?'text-red-600':'text-green-600'
+                  getDealResultColorClasses(data)
                 ]">
                 {{ formatHoursToHHMM(data.resultTime) }}
               </span>
@@ -77,7 +76,7 @@
             <template #body="{ data }">
               <span  
                 :class="['font-medium',
-                  data.realCost<0?'text-red-600':'text-green-600'
+                  getDealResultColorClasses(data)
                 ]">
                 {{ formatCurrency(data.realCost) }}
               </span>
@@ -148,10 +147,10 @@
   import {useRouter } from 'vue-router';
   import debounce from '../utils/debounce';
   import { dealService } from '../services/dealsService.js';
-  import { formatCurrency, formatHoursToHHMM } from '../utils/formatters.js';
+  import { formatCurrency, formatHoursToHHMM,formatTableDate } from '../utils/formatters.js';
   import DateRangePicker from '../components/DateRangePicker.vue';
   import { useGlobalDates } from '../utils/globalDates.js';
-  import { isInWork } from '../constants/taskStatuses.js';
+  import { getDealResultColorClasses } from '../utils/classGetters.js';
 
   const router = useRouter();
   const globalDates = useGlobalDates();
@@ -211,12 +210,53 @@
 
   const rowClassFunction = (data) => {
     const classes = ['cursor-pointer'];
-
     return classes.join(' ')
   };
 
   const onDatesChange = ({ start, end }) => {
     globalDates.updateDates(start, end);
+  };
+
+  const excelData = computed(() => {
+    const title = "Учет времени задач/занятости/трудозатрат сотрудников";
+    const filters = [
+      `Период: ${formatTableDate(startDate.value)}-${formatTableDate(endDate.value)}`,
+      wage.value > 0 ? `Ставка: ${wage.value}` : 'Ставка: не указана'
+    ];
+    
+    const columns = [
+      { title: "Название", values: [] },
+      { title: "Сумма", values: [] },
+      { title: "Планируемое время", values: [] },
+      { title: "Фактическое время", values: [] },
+      { title: "Итого", values: [] },
+      { title: "Затраты", values: [] },
+      { title: "Прибыль", values: [] },
+    ];
+    
+    if(dealsWithCosts.value && dealsWithCosts.value.length > 0){
+      dealsWithCosts.value.forEach(deal => {
+        columns[0].values.push(deal.name);
+        columns[1].values.push(formatCurrency(deal.sum));
+        columns[2].values.push(deal.plannedTime);
+        columns[3].values.push(formatHoursToHHMM(deal.timeSpent));
+        columns[4].values.push(formatHoursToHHMM(deal.resultTime));
+        columns[5].values.push(formatCurrency(deal.plannedCost));
+        columns[6].values.push(formatCurrency(deal.realCost));
+      });
+      
+      return { title, filters, columns };
+    } else {
+      return []
+    }
+  });
+
+  const handleExportSuccess = (eventData) => {
+    console.log('✅ Экспорт успешен:', eventData);
+  };
+
+  const handleExportError = (errorData) => {
+    console.error('❌ Ошибка экспорта:', errorData);
   };
 
   onMounted(async () => {

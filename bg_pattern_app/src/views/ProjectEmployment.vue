@@ -3,7 +3,11 @@
   <h1 class="text-2xl font-bold mb-4">Учет времени занятости сотрудников по проектам</h1>
   <div class="flex w-full justify-between mb-3">
     <InputNumber placeholder="Планируемое время проекта" class="mr-3 w-1/2" @input="updateTimeElapsed"/>
-    <ExcelCreate :dataItems="filteredProjects" title="Учет времени задач/занятости/трудозатрат сотрудников"/>
+    <ExcelCreate     
+      :excelData="excelData"
+      fileName="Отчет_по_проектам_и_занятости.xlsx"
+      @export="handleExportSuccess"
+      @error="handleExportError"/>
   </div>
   <div class="flex items-center h-10">
     <Dropdown 
@@ -248,6 +252,55 @@
     timeElapsed.value = parseFloat(event.value) || 0;
   }, 500);
 
+  const excelData = computed(() => {
+    const title = "Учет времени занятости сотрудников по проектам";
+    const filters = [
+      `Период: ${formatTableDate(startDate.value)} - ${formatTableDate(endDate.value)}`,
+      selectedProject.value 
+        ? `Проект: ${projectsOptions.value.find(p => p.id === selectedProject.value)?.name || 'Все'}`
+        : 'Проект: Все проекты',
+      selectedUser.value 
+        ? `Сотрудник: ${usersOptions.value.find(u => u.id === selectedUser.value)?.name || 'Все'}`
+        : 'Сотрудник: Все сотрудники',
+      timeElapsed.value 
+        ? `Планируемое время проекта: ${timeElapsed.value} ч`
+        : 'Планируемое время проекта: не указано'
+    ];
+    
+    const columns = [
+      { title: "Проект", values: [] },
+      { title: "Задача", values: [] },
+      { title: "Исполнитель", values: [] },
+      { title: "Дата постановки", values: [] },
+      { title: "Планируемое время", values: [] },
+      { title: "Фактическое время", values: [] },
+    ];
+    
+    if(filteredProjects.value && filteredProjects.value.length > 0){
+      filteredProjects.value.forEach(project => {
+        columns[0].values.push(project.projectName || '');
+        columns[1].values.push(project.title || '');
+        columns[2].values.push(project.responsibleName || '');
+        columns[3].values.push(formatTableDate(project.dateCreate));
+        columns[4].values.push(formatHoursToHHMM(project.planedTime));
+        columns[5].values.push(formatHoursToHHMM(project.timeSpent));
+      });
+      
+      return { title, filters, columns };
+    } else {
+      return [];
+    }
+  });
+
+  const handleExportSuccess = (eventData) => {
+    console.log('✅ Экспорт отчета по проектам успешен:', eventData);
+    // Можно добавить уведомление для пользователя
+  };
+
+  const handleExportError = (errorData) => {
+    console.error('❌ Ошибка экспорта отчета по проектам:', errorData);
+    // Можно добавить уведомление об ошибке
+  };
   onMounted(async () => {
     await loadProjects();
   });

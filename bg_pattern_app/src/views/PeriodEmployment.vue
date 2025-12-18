@@ -18,7 +18,11 @@
         />
         <InputNumber placeholder="Ставка"  @input="updateHours" :min="0" :max="24" :step="0.5"/>
       </div>
-      <ExcelCreate :dataItems="filteredUsers" title="Учет времени задач/занятости/трудозатрат сотрудников"/>
+      <ExcelCreate     
+        :excelData="excelData"
+        fileName="Отчет_по_занятости_сотрудников.xlsx"
+        @export="handleExportSuccess"
+        @error="handleExportError"/>
     </div>
     <div
       v-if="!loading && filteredUsers.length > 0"
@@ -305,6 +309,50 @@
     }
   });
 
+  const excelData = computed(() => {
+    const title = "Учет времени занятости сотрудников";
+    const filters = [
+      `Период: ${formatTableDate(startDate.value)} - ${formatTableDate(endDate.value)}`,
+      selectedUser.value 
+        ? `Сотрудник: ${usersOptions.value.find(user => user.id === selectedUser.value)?.name || 'Все'}`
+        : 'Сотрудник: Все сотрудники',
+      `Рабочее время в день: ${workingHours.value} ч`
+    ];
+    
+    const columns = [
+      { title: "Дата", values: [] },
+      { title: "Имя сотрудника", values: [] },
+      { title: "Количество задач", values: [] },
+      { title: "Затраченное время", values: [] },
+      { title: "Рабочее время", values: [] },
+      { title: "Итого/% затраченного времени", values: [] },
+    ];
+    
+    if(filteredUsers.value && filteredUsers.value.length > 0){
+      filteredUsers.value.forEach(user => {
+        columns[0].values.push(formatTableDate(user.date));
+        columns[1].values.push(user.name || '');
+        columns[2].values.push(user.taskCount || 0);
+        columns[3].values.push(formatHoursToHHMM(user.timeSpent));
+        columns[4].values.push(formatHoursToHHMM(user.workTime));
+        columns[5].values.push(`${user.result}%`);
+      });
+      
+      return { title, filters, columns };
+    } else {
+      return [];
+    }
+  });
+
+  const handleExportSuccess = (eventData) => {
+    console.log('✅ Экспорт отчета по занятости успешен:', eventData);
+    // Можно добавить уведомление для пользователя
+  };
+
+  const handleExportError = (errorData) => {
+    console.error('❌ Ошибка экспорта отчета по занятости:', errorData);
+    // Можно добавить уведомление об ошибке
+  };
   onMounted( () => {
     loadUsers();
   });

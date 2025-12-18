@@ -12,7 +12,7 @@ class BitrixService {
     return new Promise((resolve, reject) => {
       if (window.BX24) {
         try {
-          window.BX24.init(() => {
+          window.BX24.init(async () => {
             this.isInitialized = true;
             this.appData.placementOptions = window.BX24.placement.info();
             this.appData.auth = window.BX24.getAuth();
@@ -23,7 +23,11 @@ class BitrixService {
               isAuthorized: this.isAuthorized,
               auth: this.appData.auth
             });
-            
+            try {
+              await this.ensurePlannedTimeField();
+            } catch (fieldError) {
+              console.warn('Ошибка при работе с пользовательским полем:', fieldError);
+            }
             resolve(true);
           });
         } catch (error) {
@@ -38,7 +42,88 @@ class BitrixService {
       }
     });
   }
-  
+
+  async checkPlannedTimeField() {
+    try {
+      console.log('Проверка наличия поля UF_CRM_PLANNED_TIME...');
+      
+      const fields = await this.callMethod('crm.deal.userfield.list', {
+        filter: { FIELD_NAME: 'UF_CRM_PLANNED_TIME' },
+        select: ['ID', 'FIELD_NAME', 'USER_TYPE_ID', 'EDIT_FORM_LABEL']
+      });
+      
+      const exists = fields.length > 0;
+      console.log(`Поле UF_CRM_PLANNED_TIME ${exists ? 'существует' : 'не найдено'}`);
+      return exists;
+      
+    } catch (error) {
+      console.error('Ошибка при проверке поля UF_CRM_PLANNED_TIME:', error);
+      return false;
+    }
+  }
+
+  async createPlannedTimeField() {
+    try {
+      console.log('Создание поля UF_CRM_PLANNED_TIME...');
+      
+      const fieldData = {
+        FIELD_NAME: 'UF_CRM_PLANNED_TIME',
+        USER_TYPE_ID: 'string',
+        XML_ID: 'PLANNED_TIME',
+        SORT: 500,
+        MULTIPLE: 'N',
+        MANDATORY: 'N',
+        SHOW_FILTER: 'N',
+        SHOW_IN_LIST: 'Y',
+        EDIT_IN_LIST: 'Y',
+        IS_SEARCHABLE: 'N',
+        EDIT_FORM_LABEL: {
+          ru: 'Планируемое время (ч)',
+          en: 'Planned time (hours)'
+        },
+        LIST_COLUMN_LABEL: {
+          ru: 'Планируемое время (ч)',
+          en: 'Planned time (hours)'
+        },
+        LIST_FILTER_LABEL: {
+          ru: 'Планируемое время (ч)',
+          en: 'Planned time (hours)'
+        },
+        SETTINGS: {
+          SIZE: 20,
+          MIN_LENGTH: 0,
+          MAX_LENGTH: 255,
+          DEFAULT_VALUE: ''
+        }
+      };
+
+      const result = await this.callMethod('crm.deal.userfield.add', fieldData);
+      console.log('Поле UF_CRM_PLANNED_TIME успешно создано:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('Ошибка при создании поля UF_CRM_PLANNED_TIME:', error);
+      throw error;
+    }
+  }
+
+  async ensurePlannedTimeField() {
+    try {
+      const exists = await this.checkPlannedTimeField();
+      
+      if (!exists) {
+        await this.createPlannedTimeField();
+        return true;
+      }
+      
+      return false; // поле уже существовало
+      
+    } catch (error) {
+      console.error('Ошибка при ensurePlannedTimeField:', error);
+      throw error;
+    }
+  }
+
   checkAuth() {
     return this.isAuthorized && this.isInitialized;
   }
@@ -52,18 +137,18 @@ class BitrixService {
     };
   }
   
-    async checkConnection() {
-      try {
-        if (!this.isInitialized) {
-          await this.init();
-        }
-        await this.callMethod('app.info');
-        return { success: true, message: 'Соединение установлено успешно' };
-      } catch (error) {
-        console.error('Ошибка при проверке подключения:', error);
-        return { success: false, message: error.message || 'Не удалось установить соединение' };
+  async checkConnection() {
+    try {
+      if (!this.isInitialized) {
+        await this.init();
       }
+      await this.callMethod('app.info');
+      return { success: true, message: 'Соединение установлено успешно' };
+    } catch (error) {
+      console.error('Ошибка при проверке подключения:', error);
+      return { success: false, message: error.message || 'Не удалось установить соединение' };
     }
+  }
   
     async isConnected() {
       try {
@@ -209,26 +294,24 @@ class BitrixService {
     }
   
   
-    async getCurrentUser() {
-      try {
-        if (!this.isInitialized) {
-          await this.init();
-        }
-        return await this.callMethod('user.current');
-      } catch (error) {
-        console.error('Ошибка при получении информации о пользователе:', error);
-        throw error;
+  async getCurrentUser() {
+    try {
+      if (!this.isInitialized) {
+        await this.init();
       }
+      return await this.callMethod('user.current');
+    } catch (error) {
+      console.error('Ошибка при получении информации о пользователе:', error);
+      throw error;
     }
-  
-    finishWork() {
-      if (window.BX24 && this.isInitialized) {
-        window.BX24.closeApplication();
-      }
-    }
-
-    
   }
   
-  export default new BitrixService();
+  finishWork() {
+    if (window.BX24 && this.isInitialized) {
+      window.BX24.closeApplication();
+    }
+  }
+}
+  
+export default new BitrixService();
   
