@@ -38,7 +38,16 @@ export class Task {
     return result;
   }
 
-  // Оптимизированный расчет времени
+  hasElapsedItemsInPeriod(startDate = null, endDate = null) {
+    if (!this.elapsedItems || this.elapsedItems.length === 0) {
+      return false;
+    }
+    
+    return this.elapsedItems.some(item => 
+      item.isInDateRange(startDate, endDate)
+    );
+  }
+  
   getTimeSpentHours(startDate = null, endDate = null) {
     const cacheKey = `time_spent_${startDate}_${endDate}`;
     

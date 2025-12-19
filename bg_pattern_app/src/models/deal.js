@@ -9,10 +9,6 @@ export class Deal {
     this._calculationCache = new Map();
   }
 
-  hasTasksInPeriod(startDate = null, endDate = null) {
-    return this.tasks.some(task => task.isInDateRange(startDate, endDate));
-  }
-
   getTimeSpentHours(startDate = null, endDate = null) {
     const cacheKey = `timeSpent_${startDate}_${endDate}`;
     
@@ -21,7 +17,7 @@ export class Deal {
     }
 
     const filteredTasks = this.tasks.filter(task => 
-      task.isInDateRange(startDate, endDate)
+      task.hasElapsedItemsInPeriod(startDate, endDate)
     );
 
     const result = filteredTasks.reduce((sum, task) => 
@@ -32,7 +28,16 @@ export class Deal {
     return result;
   }
 
-  // Быстрые расчеты с кэшированием
+  hasTasksInPeriod(startDate = null, endDate = null) {
+    return this.tasks.some(task => 
+      task.hasElapsedItemsInPeriod(startDate, endDate)
+    );
+  }
+
+  hasTasksInPeriod(startDate = null, endDate = null) {
+    return this.tasks.some(task => task.isInDateRange(startDate, endDate));
+  }
+
   getResultTime(startDate = null, endDate = null) {
     return this.plannedTime - this.getTimeSpentHours(startDate, endDate);
   }

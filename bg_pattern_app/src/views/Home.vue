@@ -17,9 +17,14 @@
       fileName="Отчет_по_сделкам.xlsx"
       @export="handleExportSuccess"
       @error="handleExportError"/>
+      
+    </div>
+    <div v-if="!startDate || !endDate" class="text-center py-8 text-gray-500">
+      <i class="pi pi-filter text-4xl mb-4"></i>
+      <p>Выберите период</p>
     </div>
     <div
-      v-if="!loading && dealsWithCosts.length > 0"
+      v-else-if="!loading && dealsWithCosts.length > 0"
       class="overflow-x-auto mt-3">
         <DataTable
           :value="dealsWithCosts"
@@ -85,7 +90,7 @@
         </DataTable>
     </div>
     <div
-      v-if="!loading && deals.length === 0"
+      v-else-if="loading"
       class="overflow-x-auto mt-3">
       <DataTable
         :value="skeletonData"
@@ -143,7 +148,7 @@
 
 <script setup>
   import ExcelCreate from '../components/ExcelCreate.vue';
-  import { ref, onMounted, computed } from 'vue';
+  import { ref, onMounted, computed, watch } from 'vue';
   import {useRouter } from 'vue-router';
   import debounce from '../utils/debounce';
   import { dealService } from '../services/dealsService.js';
@@ -164,27 +169,32 @@
   const selectedDealId = ref(null);
   
   const loadDeals = async () => {
-    try {
-      loading.value = true;
-      deals.value = await dealService.getDeals();
-      console.log('Загружено сделок:', deals.value.length);
-    } catch (error) {
-      console.error('Ошибка загрузки сделок:', error);
-    } finally {
-      loading.value = false;
+    if(startDate.value && endDate.value){
+      try {
+        loading.value = true;
+        deals.value = await dealService.getDeals(
+          {}, 
+          startDate.value,
+          endDate.value
+        );
+        console.log('Загружено сделок:', deals.value);
+      } catch (error) {
+        console.error('Ошибка загрузки сделок:', error);
+      } finally {
+        loading.value = false;
+      }
     }
   };
   
   const dealsWithCosts = computed(() => {
-    if(!startDate.value && !endDate.value){
-      return deals.value
-      .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
-    }else{
-      return deals.value
-      .filter(deal => deal.hasTasksInPeriod(startDate.value, endDate.value))
-      .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
+    if(startDate.value && endDate.value){
+      const filtred = deals.value
+        .filter(deal => deal.hasTasksInPeriod(startDate.value, endDate.value))
+        .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
+      console.log("filtred",filtred)
+      return filtred
     }
-
+    else return []
   });
   
   const updateWage = debounce((event) => {
@@ -258,6 +268,9 @@
   const handleExportError = (errorData) => {
     console.error('❌ Ошибка экспорта:', errorData);
   };
+  watch([startDate, endDate], async () => {
+    await loadDeals()
+  }, { deep: true });
 
   onMounted(async () => {
     await loadDeals();

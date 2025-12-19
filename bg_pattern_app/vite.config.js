@@ -4,10 +4,15 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
-  root: '.', // корневая папка проекта, где лежит index.html
-  base: './',
+  root: '.',
+  // ВАЖНО: укажите полный путь к вашей папке dist
+  base: '/Apps/otchet_tasks_manager/',
   build: {
-    outDir: 'dist', // или другой путь, если нужно
+    outDir: 'dist',
     emptyOutDir: true,
+    assetsDir: 'assets'
   },
+  server: {
+    host: true
+  }
 });
