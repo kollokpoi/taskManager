@@ -9,9 +9,6 @@ export class ProjectService {
     this.projectDetailsCache = new Map();
   }
 
-  /**
-   * Получает только базовую информацию о проектах (ID и название)
-   */
   async getProjectsList() {
     const cacheKey = 'projects_list';
     
@@ -25,9 +22,8 @@ export class ProjectService {
         select: ['ID', 'NAME']
       });
 
-      // Фильтруем только активные проекты на клиенте
       const projectsList = (response.result || response || [])
-        .filter(project => project.ACTIVE !== false) // Фильтр активных
+        .filter(project => project.ACTIVE !== false)
         .map(project => ({
           id: project.ID,
           name: project.NAME || 'Без названия'
@@ -37,17 +33,12 @@ export class ProjectService {
       setTimeout(() => this.projectsCache.delete(cacheKey), 300000);
       
       return projectsList;
-
     } catch (error) {
       console.error('Ошибка получения списка проектов:', error);
       throw error;
     }
   }
 
-  /**
-   * Получает детальную информацию о проекте
-   * Для получения одного проекта лучше использовать sonet_group.get со всеми полями
-   */
   async getProjectDetails(projectId, startDate, endDate) {
     const cacheKey = `project_details_${projectId}`;
     
@@ -56,13 +47,11 @@ export class ProjectService {
     }
 
     try {
-      // Получаем ВСЕ проекты и фильтруем по ID на клиенте
       const response = await bitrixService.callMethod('sonet_group.get', {
         order: { ID: 'DESC' },
         select: ['ID', 'NAME', 'DESCRIPTION', 'DATE_CREATE', 'ACTIVE', 'IMAGE_ID']
       });
 
-      // Находим нужный проект
       const allProjects = response.result || response || [];
       const projectData = allProjects.find(project => project.ID == projectId);
       
@@ -70,81 +59,23 @@ export class ProjectService {
         throw new Error(`Проект ${projectId} не найден`);
       }
 
-      // Параллельно загружаем участников и задачи
       const [users, tasks] = await Promise.all([
         this._getProjectUsers(projectId),
         taskService.getProjectTasks(projectId, startDate, endDate).catch(() => [])
       ]);
 
-      const project = new Project({
-        ...projectData,
-        users,
-        tasks
-      });
+      const project = new Project({ ...projectData, users, tasks });
 
       this.projectDetailsCache.set(cacheKey, project);
       setTimeout(() => this.projectDetailsCache.delete(cacheKey), 300000);
       
       return project;
-
     } catch (error) {
       console.error(`Ошибка получения деталей проекта ${projectId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Альтернативный вариант: получение деталей через sonet_group.user.get
-   * (Может работать иначе в разных версиях Битрикс)
-   */
-  async getProjectDetailsAlternative(projectId) {
-    try {
-      // Получаем базовую информацию о проекте
-      const [projectResponse, users, tasks] = await Promise.all([
-        bitrixService.callMethod('sonet_group.get', {
-          filter: { ID: projectId },
-          select: ['ID', 'NAME', 'DESCRIPTION', 'DATE_CREATE', 'ACTIVE']
-        }).catch(() => ({ result: [] })),
-        
-        this._getProjectUsers(projectId),
-        taskService.getProjectTasks(projectId).catch(() => [])
-      ]);
-
-      let projectData = (projectResponse.result || [])[0];
-      if (!projectData) {
-        // Если через filter не нашли, попробуем получить из общего списка
-        const allProjects = await this.getProjectsList();
-        const projectInfo = allProjects.find(p => p.id == projectId);
-        
-        if (!projectInfo) {
-          throw new Error(`Проект ${projectId} не найден`);
-        }
-
-        // Создаем минимальный объект проекта
-        projectData = {
-          ID: projectId,
-          NAME: projectInfo.name,
-          DESCRIPTION: '',
-          DATE_CREATE: '',
-          ACTIVE: true
-        };
-      }
-
-      return new Project({
-        ...projectData,
-        users,
-        tasks
-      });
-
-    } catch (error) {
-      console.error(`Ошибка получения деталей проекта ${projectId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Получает участников проекта
-   */
   async _getProjectUsers(projectId) {
     try {
       const response = await bitrixService.callMethod('sonet_group.user.get', {
@@ -159,12 +90,8 @@ export class ProjectService {
         return [];
       }
 
-      // Получаем информацию о пользователях
       const users = await userService.getUsers();
-      return users.filter(user => 
-        userIds.includes(user.id.toString())
-      );
-
+      return users.filter(user => userIds.includes(user.id.toString()));
     } catch (error) {
       console.error(`Ошибка получения участников проекта ${projectId}:`, error);
       return [];

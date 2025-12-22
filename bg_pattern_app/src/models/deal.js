@@ -4,8 +4,7 @@ export class Deal {
     this.name = data.TITLE || data.title || 'Без названия';
     this.sum = parseFloat(data.OPPORTUNITY || data.sum || 0);
     this.plannedTime = parseFloat(data.UF_CRM_PLANNED_TIME || data.plannedTime || 0);
-    this.tasks = (data.tasks || []);
-    
+    this.tasks = data.tasks || [];
     this._calculationCache = new Map();
   }
 
@@ -29,12 +28,6 @@ export class Deal {
   }
 
   hasTasksInPeriod(startDate = null, endDate = null) {
-    return this.tasks.some(task => 
-      task.hasElapsedItemsInPeriod(startDate, endDate)
-    );
-  }
-
-  hasTasksInPeriod(startDate = null, endDate = null) {
     return this.tasks.some(task => task.isInDateRange(startDate, endDate));
   }
 
@@ -51,7 +44,6 @@ export class Deal {
     return this.sum - timeSpent * (wage || 0);
   }
 
-  // Метод для таблицы с предварительными расчетами
   toTableRow(wage = 0, startDate = null, endDate = null) {
     const timeSpent = this.getTimeSpentHours(startDate, endDate);
     const resultTime = this.plannedTime - timeSpent;
@@ -61,8 +53,8 @@ export class Deal {
       name: this.name,
       sum: this.sum,
       plannedTime: this.plannedTime,
-      timeSpent: timeSpent,
-      resultTime: resultTime,
+      timeSpent,
+      resultTime,
       plannedCost: timeSpent * wage,
       realCost: this.sum - timeSpent * wage,
       hasTasks: this.tasks.length > 0

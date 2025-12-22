@@ -267,18 +267,6 @@
       const totalWorkTime = usersArray.reduce((sum, row) => sum + row.workTime, 0);
       const totalPercent = totalWorkTime > 0 ? (totalTimeSpent / totalWorkTime * 100).toFixed(2) : '0.00';
       const remainingPercent = totalWorkTime > 0 ? (100 - parseFloat(totalPercent)).toFixed(2) : '0.0'
-      console.log("userData",{
-        users:users.value,
-        data: usersArray,
-        totals: {
-          totalTasks,
-          totalTimeSpent,
-          totalWorkTime,
-          totalPercent,
-          remainingPercent,
-          totalTaskCount: usersArray.reduce((sum, row) => sum + row.taskCount, 0)
-        }
-      })
       return {
       data: usersArray,
       totals: {
@@ -371,7 +359,7 @@
         totals.push( filteredUsers.value.totals.totalTasks)
         totals.push( formatHoursToHHMM(filteredUsers.value.totals.totalTimeSpent))
         totals.push( formatHoursToHHMM(filteredUsers.value.totals.totalWorkTime))
-        totals.push( totalPercent+'%')
+        totals.push( filteredUsers.value.totals.totalPercent+'%')
       }
 
       return { title, filters, columns,totals };
