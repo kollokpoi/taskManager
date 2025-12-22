@@ -62,44 +62,8 @@
   
     <!-- Статус загрузки -->
     <div v-if="loadingProjects" class="overflow-x-auto mt-3">
-      <DataTable :value="skeletonData" class="p-datatable-sm" responsiveLayout="scroll">
-        <Column field="projectName" header="Проект">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="taskName" header="Задача">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="employeeName" header="Исполнитель">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="date" header="Дата постановки">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="pseudoTime" header="Планируемое время">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="realTime" header="Фактическое время">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-      </DataTable>
-    </div>
-  
-    <!-- Загрузка деталей проекта -->
-    <div v-else-if="loadingProjectDetails" class="text-center py-8">
       <ProgressSpinner style="width: 50px; height: 50px" />
-      <p class="mt-3 text-gray-600">Загрузка данных проекта...</p>
+      <p class="mt-3 text-gray-600">Загрузка проектов...</p>
     </div>
   
     <!-- Таблица с данными -->
@@ -180,18 +144,29 @@
         </DataTable>
     </div>
   
-    <!-- Нет данных -->
-    <div v-else-if="selectedProjectId && !loadingProjectDetails" class="text-center py-8 text-gray-500">
-      <i class="pi pi-inbox text-4xl mb-4"></i>
-      <p>В выбранном проекте нет задач для отображения</p>
-      <p class="text-sm mt-2">Попробуйте изменить фильтры или выбрать другой проект</p>
+    <div v-else-if="!filteredProjects.tasks.length" class="text-center py-8 text-gray-500">
+      <i class="pi text-4xl mb-4" 
+        :class="{
+          'pi-filter': !selectedProjectId || !startDate || !endDate,
+          'pi-inbox': selectedProjectId && (!currentProject?.tasks?.length || filteredProjects.message?.includes('задач'))
+        }" ></i>
+      <template v-if="!selectedProjectId">
+        <p>Выберите проект для отображения данных</p>
+      </template>
+      <template v-else-if="!startDate || !endDate">
+        <p>Выберите период для отображения данных</p>
+        <p class="text-sm mt-2">Укажите начальную и конечную дату</p>
+      </template>
+      <template v-else-if="loadingProjectDetails">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+        <p class="mt-3 text-gray-600">Загрузка данных проекта...</p>
+      </template>
+      <template v-else>
+        <p>{{ filteredProjects.message || 'В выбранном проекте нет задач для отображения' }}</p>
+        <p class="text-sm mt-2">Попробуйте изменить фильтры или выбрать другой проект</p>
+      </template>
     </div>
-  
-    <div v-else-if="!loadingProjects" class="text-center py-8 text-gray-500">
-      <i class="pi pi-filter text-4xl mb-4"></i>
-      <p>Выберите проект для отображения данных</p>
     </div>
-  </div>
   </template>
   
   <script setup>
@@ -208,26 +183,22 @@
     const startDate = ref(globalDates.dates.start);
     const endDate = ref(globalDates.dates.end);
     
-    // Состояния загрузки
-    const loadingProjects = ref(false); // Загрузка списка проектов
-    const loadingProjectDetails = ref(false); // Загрузка деталей проекта
+    const loadingProjects = ref(false);
+    const loadingProjectDetails = ref(false); 
+
+    const projectsList = ref([]);
+    const currentProject = ref(null); 
     
-    // Данные
-    const projectsList = ref([]); // Только ID и названия проектов
-    const currentProject = ref(null); // Полные данные выбранного проекта
-    const skeletonData = Array(5).fill({});
-    
-    // Фильтры
     const selectedProjectId = ref(null);
     const selectedUserId = ref(null);
     const timeElapsed = ref(0);
   
-    // Загружаем список проектов при монтировании
     onMounted(async () => {
       await loadProjectsList();
+      startDate.value = globalDates.dates.start
+      endDate.value = globalDates.dates.end
     });
   
-    // Загружаем только список проектов (ID + название)
     const loadProjectsList = async () => {
       try {
         loadingProjects.value = true;
@@ -239,42 +210,45 @@
         loadingProjects.value = false;
       }
     };
-  
-    // При изменении выбранного проекта
-    const onProjectChange = async () => {
-      selectedUserId.value = null; // Сбрасываем выбор пользователя
-      currentProject.value = null; // Сбрасываем текущий проект
-      
-      if (!selectedProjectId.value) {
+
+    const loadProjectDetails = async () => {
+      if (!selectedProjectId.value || !startDate.value || !endDate.value) {
+        currentProject.value = null;
         return;
       }
-  
+
       try {
         loadingProjectDetails.value = true;
-        // Загружаем детали проекта (участники и задачи)
-        currentProject.value = await projectService.getProjectDetails(selectedProjectId.value);
+        currentProject.value = await projectService.getProjectDetails(
+          selectedProjectId.value, 
+          startDate.value, 
+          endDate.value
+        );
         console.log('Загружен проект:', currentProject.value);
       } catch (error) {
         console.error('Ошибка загрузки проекта:', error);
+        currentProject.value = null;
       } finally {
         loadingProjectDetails.value = false;
       }
     };
+
+    const onProjectChange = async () => {
+      selectedUserId.value = null;
+      await loadProjectDetails();
+    };
   
-    // Получить имя проекта по ID
     const getProjectName = (projectId) => {
       const project = projectsList.value.find(p => p.id == projectId);
       return project?.name || 'Неизвестный проект';
     };
   
-    // Получить имя пользователя по ID
     const getUserName = (userId) => {
       if (!currentProject.value || !currentProject.value.users) return '';
       const user = currentProject.value.users.find(u => u.id == userId);
       return user ? `${user.name} ${user.lastName}`.trim() : '';
     };
   
-    // Опции для dropdown проектов
     const projectsOptions = computed(() => {
       const options = projectsList.value.map(project => ({
         id: project.id,
@@ -289,7 +263,6 @@
       ];
     });
   
-    // Опции для dropdown пользователей
     const usersOptions = computed(() => {
       if (!currentProject.value || !currentProject.value.users || !currentProject.value.users.length) {
         return [{ id: null, name: 'Все сотрудники' }];
@@ -308,21 +281,50 @@
       ];
     });
   
-    // Фильтрованные задачи
+    watch(
+      [selectedProjectId, startDate, endDate],
+      async ([newProjectId, newStartDate, newEndDate], [oldProjectId, oldStartDate, oldEndDate]) => {
+        // Проверяем, что действительно изменилось что-то важное
+        const projectChanged = newProjectId !== oldProjectId;
+        const datesChanged = newStartDate !== oldStartDate || newEndDate !== oldEndDate;
+        
+        // Загружаем только если есть ID проекта и даты
+        if ((projectChanged || datesChanged) && newProjectId && newStartDate && newEndDate) {
+          console.log('Изменение условий - перезагружаю проект...');
+          await loadProjectDetails();
+        }
+      },
+      { deep: true }
+    );
+
+
     const filteredProjects = computed(() => {
-      // Если нет проекта или нет задач
-      if (!currentProject.value || !currentProject.value.tasks || !currentProject.value.tasks.length) {
-        return { tasks: [], totals: { plannedTotal: 0, actualTotal: 0, resultTotal: 0 } };
+      if (loadingProjectDetails.value) {
+        return { 
+          tasks: [], 
+          totals: { plannedTotal: 0, actualTotal: 0, resultTotal: 0, taskCount: 0 } 
+        };
       }
-  
-      // Получаем задачи проекта
+      
+      if (!currentProject.value || !currentProject.value.tasks || !currentProject.value.tasks.length) {
+        const noDataMessage = !selectedProjectId.value 
+          ? { tasks: [], message: 'Выберите проект для отображения данных' }
+          : !startDate.value || !endDate.value 
+            ? { tasks: [], message: 'Выберите период для отображения данных' }
+            : { tasks: [], message: 'В выбранном проекте нет задач для отображения' };
+        
+        return { 
+          ...noDataMessage, 
+          totals: { plannedTotal: 0, actualTotal: 0, resultTotal: 0, taskCount: 0 } 
+        };
+      }
+
       const taskRows = currentProject.value.toTableRows(
         startDate.value, 
         endDate.value, 
         timeElapsed.value
       );
-  
-      // Фильтруем по выбранному пользователю
+
       let filtered = taskRows;
       
       if (selectedUserId.value) {
@@ -330,11 +332,11 @@
           task.responsibleId == selectedUserId.value
         );
       }
-  
+
       const plannedTotal = timeElapsed.value;
       const actualTotal = filtered.reduce((sum, task) => sum + task.timeSpent, 0);
       const resultTotal = plannedTotal - actualTotal;
-  
+
       return {
         tasks: filtered,
         totals: {

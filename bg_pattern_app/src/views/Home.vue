@@ -163,31 +163,28 @@
   const loading = ref(true);
   const deals = ref([]); 
   const wage = ref(0);
-  const startDate = ref(globalDates.dates.start);
-  const endDate = ref(globalDates.dates.end);
+  const startDate = ref();
+  const endDate = ref();
   const skeletonData = Array(7).fill({});
   const selectedDealId = ref(null);
   
   const loadDeals = async () => {
-    if(startDate.value && endDate.value){
-      try {
-        loading.value = true;
-        deals.value = await dealService.getDeals(
-          {}, 
-          startDate.value,
-          endDate.value
-        );
-        console.log('Загружено сделок:', deals.value);
-      } catch (error) {
-        console.error('Ошибка загрузки сделок:', error);
-      } finally {
-        loading.value = false;
-      }
+    try {
+      loading.value = true;
+      deals.value = await dealService.getDeals(
+        startDate.value,
+        endDate.value
+      );
+      console.log('Загружено сделок:', deals.value);
+    } catch (error) {
+      console.error('Ошибка загрузки сделок:', error);
+    } finally {
+      loading.value = false;
     }
   };
   
   const dealsWithCosts = computed(() => {
-    if(startDate.value && endDate.value){
+    if(startDate.value && endDate.value && deals.value){
       const filtred = deals.value
         .filter(deal => deal.hasTasksInPeriod(startDate.value, endDate.value))
         .map(deal => deal.toTableRow(wage.value, startDate.value, endDate.value));
@@ -269,12 +266,12 @@
     console.error('❌ Ошибка экспорта:', errorData);
   };
   watch([startDate, endDate], async () => {
-    await loadDeals()
+    if(startDate.value && endDate.value)
+      await loadDeals()
   }, { deep: true });
 
-  onMounted(async () => {
-    await loadDeals();
-  });
-  
-
+  onMounted(()=>{
+    startDate.value = globalDates.dates.start
+    endDate.value = globalDates.dates.end
+  })
   </script>

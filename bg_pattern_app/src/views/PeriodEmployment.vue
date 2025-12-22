@@ -1,11 +1,12 @@
 <template>
   <div class="p-4">
     <h1 class="text-2xl font-bold mb-4">Учет времени занятости сотрудников</h1>
-    <div class="flex w-full justify-between">
+    <div class="flex w-full justify-between mb-4">
       <div class="inputs flex items-center h-10">
         <DateRangePicker 
           v-model:startDate="startDate"
           v-model:endDate="endDate"
+          @change="onDatesChange"
         />
         <Dropdown 
           v-model="selectedUser"
@@ -15,17 +16,32 @@
           placeholder="Все сотрудники" 
           class="mr-4 w-64"
           @change="onUserChange"
+          :disabled="!startDate || !endDate"
         />
-        <InputNumber placeholder="Рабочее время"  @input="updateHours" :min="0" :max="24" :step="0.5"/>
+        <InputNumber 
+          placeholder="Рабочее время"  
+          v-model="workingHours"
+          :min="0" 
+          :max="24" 
+          :step="0.5"
+          :disabled="!startDate || !endDate"/>
       </div>
       <ExcelCreate     
         :excelData="excelData"
         fileName="Отчет_по_занятости_сотрудников.xlsx"
         @export="handleExportSuccess"
-        @error="handleExportError"/>
+        @error="handleExportError"
+        :disabled="!filteredUsers.data.length"/>
     </div>
-    <div
-      v-if="!loading && filteredUsers.data.length > 0"
+
+    <!-- Статус загрузки -->
+    <div v-if="loading" class="text-center py-8">
+      <ProgressSpinner style="width: 50px; height: 50px" />
+      <p class="mt-3 text-gray-600">Загрузка данных о сотрудниках...</p>
+    </div>
+
+    <!-- Таблица с данными -->
+    <div v-else-if="filteredUsers.data && filteredUsers.data.length > 0"
       class="overflow-x-auto mt-3">
         <DataTable
           :value="filteredUsers.data"
@@ -79,13 +95,13 @@
             <Column field="result" header="Итого/% затраченного времени" sortable>
                 <template #body="{ data }">
                     <span :class="['font-medium',
-                      data.result<=75?'text-red-200':''
+                      data.result<=75?'text-red-600':'text-green-600'
                     ]"
                     > {{ data.result }}%</span>
                 </template>
                 <template #footer>
                   <span :class="['font-bold', 
-                    filteredUsers.totals?.remainingPercent < 25 ? 'text-green-600' : 'text-red-600'
+                    filteredUsers.totals?.totalPercent < 75 ? 'text-green-600' : 'text-red-600'
                   ]">
                     {{ filteredUsers.totals?.totalPercent || '0.00' }}%
                   </span>
@@ -93,57 +109,35 @@
             </Column>
         </DataTable>
     </div>
-    <div
-      v-if="loading || filteredUsers.data.length===0"
-      class="overflow-x-auto mt-3">
-      <DataTable
-        :value="skeletonData"
-        class="p-datatable-sm"
-        responsiveLayout="scroll">
-        <Column field="date" header="Дата">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="employerName" header="Имя сотрудника" >
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="taskCount" header="Количество задач">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="lostTime" header="Затраченное время (ч)">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="workTime" header="Рабочее время (ч)">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="result" header="Итого (ч)/% затраченного времени">
-          <template #body>
-            <Skeleton
-              height="1.5rem"
-              class="mb-2" />
-          </template>
-        </Column>
-      </DataTable>
+
+    <!-- Сообщения об отсутствии данных -->
+    <div v-else-if="!filteredUsers.data.length" class="text-center py-8 text-gray-500">
+      <i class="pi text-4xl mb-4" 
+        :class="{
+          'pi-calendar': !startDate || !endDate,
+          'pi-inbox': startDate && endDate && (!users.length || filteredUsers.message?.includes('сотрудников')),
+          'pi-user': selectedUser && !filteredUsers.data.length && users.length > 0
+        }"></i>
+      
+      <template v-if="!startDate || !endDate">
+        <p>Выберите период для отображения данных</p>
+        <p class="text-sm mt-2">Укажите начальную и конечную дату</p>
+      </template>
+      <template v-else-if="loading">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+        <p class="mt-3 text-gray-600">Загрузка данных о сотрудниках...</p>
+      </template>
+      <template v-else-if="selectedUser && !filteredUsers.data.length && users.length > 0">
+        <p>У выбранного сотрудника нет данных по задачам в указанный период</p>
+        <p class="text-sm mt-2">Попробуйте выбрать другого сотрудника или изменить период</p>
+      </template>
+      <template v-else>
+        <p>{{ filteredUsers.message || 'Нет данных о занятости сотрудников в выбранном периоде' }}</p>
+        <p class="text-sm mt-2">Попробуйте изменить фильтры или выбрать другой период</p>
+      </template>
     </div>
+    
+    <!-- Диалог с детальной информацией -->
     <Dialog 
       v-model:visible="showDialog" 
       modal 
@@ -171,11 +165,12 @@
             <div class="text-sm text-gray-500">Итого/%</div>
             <div :class="[
               'font-medium',
-              selectedRow.result<=75?'text-red-200':'']">
+              selectedRow.result<=75?'text-red-600':'text-green-600']">
               {{ selectedRow.result }}%</div>
           </div>
         </div>
         
+        <!-- Таблица задач сотрудника -->
         <DataTable
           :value="selectedRow.tasks"
           v-if="selectedRow.tasks && selectedRow.tasks.length"
@@ -209,7 +204,6 @@
             </Column>
         </DataTable>
 
-        <!-- Нет задач -->
         <div v-else class="text-center text-gray-500 py-4">
           Нет информации о задачах
         </div>
@@ -227,12 +221,11 @@
   import debounce from '../utils/debounce.js';
   const globalDates = useGlobalDates();
 
-  const startDate = ref(globalDates.dates.start);
-  const endDate = ref(globalDates.dates.end);
+  const startDate = ref();
+  const endDate = ref();
   const selectedUser = ref(null);
   const loading = ref(false);
   const users = ref([]);
-  const skeletonData = Array(5).fill({});
   const workingHours = ref(8)
   const selectedRow = ref(null)
   const showDialog = ref(false);
@@ -240,7 +233,7 @@
   const loadUsers = async () => {
     try {
       loading.value = true;
-      users.value = await userService.getUsers();
+      users.value = await userService.getUsers(startDate.value, endDate.value);
       console.log('Загружено пользователей:', users.value.length);
     } catch (error) {
       console.error('Ошибка загрузки пользователей:', error);
@@ -274,7 +267,8 @@
       const totalWorkTime = usersArray.reduce((sum, row) => sum + row.workTime, 0);
       const totalPercent = totalWorkTime > 0 ? (totalTimeSpent / totalWorkTime * 100).toFixed(2) : '0.00';
       const remainingPercent = totalWorkTime > 0 ? (100 - parseFloat(totalPercent)).toFixed(2) : '0.0'
-      console.log({
+      console.log("userData",{
+        users:users.value,
         data: usersArray,
         totals: {
           totalTasks,
@@ -329,10 +323,6 @@
       name: usersOptions.value.find(emp => emp.id === event.value)?.name
     });
   };
-  
-  const updateHours = debounce((event) => {
-    workingHours.value = parseFloat(event.value) || 0;
-  }, 500);
 
   const rowClassFunction = () => {
     return "cursor-pointer hover:bg-blue-50";
@@ -346,18 +336,6 @@
   const closeDialog = () => {
     showDialog.value = false;
   };
-
-  watch(() => globalDates.dates.start, (newVal) => {
-    if (newVal !== startDate.value) {
-      startDate.value = newVal;
-    }
-  });
-
-  watch(() => globalDates.dates.end, (newVal) => {
-    if (newVal !== endDate.value) {
-      endDate.value = newVal;
-    }
-  });
 
   const excelData = computed(() => {
     const title = "Учет времени занятости сотрудников";
@@ -378,8 +356,8 @@
       { title: "Рабочее время", values: [] },
       { title: "Итого/% затраченного времени", values: [] },
     ];
-    
-    if(filteredUsers.value && filteredUsers.value.length > 0){
+
+    if(filteredUsers.value && filteredUsers.value.data && filteredUsers.value.data.length > 0){
       filteredUsers.value.data.forEach(user => {
         columns[0].values.push(formatTableDate(user.date));
         columns[1].values.push(user.name || '');
@@ -389,11 +367,11 @@
         columns[5].values.push(`${user.result}%`);
       });
       
-      if(filteredProjects.value && filteredProjects.value.totals){
-        totals.push( filteredProjects.value.totals.totalTasks)
-        totals.push( formatHoursToHHMM(filteredProjects.value.totals.plannedTotal))
-        totals.push( formatHoursToHHMM(filteredProjects.value.totals.actualTotal))
-        totals.push( formatHoursToHHMM(filteredProjects.value.totals.resultTotal))
+      if(filteredUsers.value && filteredUsers.value.totals){
+        totals.push( filteredUsers.value.totals.totalTasks)
+        totals.push( formatHoursToHHMM(filteredUsers.value.totals.totalTimeSpent))
+        totals.push( formatHoursToHHMM(filteredUsers.value.totals.totalWorkTime))
+        totals.push( totalPercent+'%')
       }
 
       return { title, filters, columns,totals };
@@ -411,7 +389,13 @@
     console.error('❌ Ошибка экспорта отчета по занятости:', errorData);
     // Можно добавить уведомление об ошибке
   };
-  onMounted( () => {
-    loadUsers();
-  });
+  watch([startDate, endDate], async () => {
+    if(startDate.value && endDate.value)
+      await loadUsers()
+  }, { deep: true });
+
+  onMounted(()=>{
+    startDate.value = globalDates.dates.start
+    endDate.value = globalDates.dates.end
+  })
 </script>

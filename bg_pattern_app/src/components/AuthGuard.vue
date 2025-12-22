@@ -22,7 +22,6 @@
         </button>
       </div>
     </div>
-    
     <slot v-else />
   </template>
   

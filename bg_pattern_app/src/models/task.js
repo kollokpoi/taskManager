@@ -16,7 +16,7 @@ export class Task {
     this.createdDate = data.createdDate || null;
     this.closedBy = data.closedBy || null;
     this.closedDate = data.closedDate || data.CLOSED_DATE || null;
-    
+    this.ufCrmTask = data.ufCrmTask || data.UF_CRM_TASK,
     // Кэш для ускорения расчетов
     this._filteredCache = new Map();
     this._calculationCache = new Map();

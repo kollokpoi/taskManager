@@ -1,11 +1,12 @@
 <template>
   <div class="p-4">
     <h1 class="text-2xl font-bold mb-4">Учет времени задач сотрудников</h1>
-    <div class="flex w-full justify-between">
+    <div class="flex w-full justify-between mb-4">
       <div class="inputs flex items-center h-10">
         <DateRangePicker
           v-model:startDate="startDate"
           v-model:endDate="endDate"
+          @change="onDatesChange"
         />
         <Dropdown
           v-model="selectedEmployee"
@@ -15,15 +16,26 @@
           placeholder="Все сотрудники"
           class="mr-4 w-64"
           @change="onEmployeeChange"
+          :disabled="loading || !startDate || !endDate"
         />
       </div>
       <ExcelCreate     
         :excelData="excelData"
         fileName="Отчет_по_задачам.xlsx"
         @export="handleExportSuccess"
-        @error="handleExportError"/>
+        @error="handleExportError"
+        :disabled="!filteredTasks.length"/>
     </div>
-    <div v-if="!loading && tasks.length > 0" class="overflow-x-auto mt-3">
+
+    <!-- Статус загрузки -->
+    <div v-if="loading" class="text-center py-8">
+      <ProgressSpinner style="width: 50px; height: 50px" />
+      <p class="mt-3 text-gray-600">Загрузка задач...</p>
+    </div>
+
+    <!-- Таблица с данными -->
+    <div v-else-if="filteredTasks && filteredTasks.length > 0"
+      class="overflow-x-auto mt-3">
       <DataTable
         :value="filteredTasks"
         responsiveLayout="scroll"
@@ -35,7 +47,7 @@
         :rowsPerPageOptions="[5, 10, 20, 50]"
         @row-click="onRowClick"
         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-        currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел"
+        currentPageReportTemplate="Показано {first} - {last} из {totalRecords} задач"
       >
         <Column field="title" header="Задача" sortable>
           <template #body="{ data }">
@@ -68,7 +80,6 @@
                 'font-medium',
                 getTaskResultColorClasses(data)
               ]">
-
               {{ formatHoursToHHMM(data.resultTime) }}
             </span>
           </template>
@@ -91,48 +102,32 @@
         </Column>
       </DataTable>
     </div>
-    <div v-if="loading" class="overflow-x-auto mt-3">
-      <DataTable
-        :value="skeletonData"
-        class="p-datatable-sm"
-        responsiveLayout="scroll"
-      >
-        <Column field="tasks" header="Задачи">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="executor" header="Исполнитель">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="pseudoTime" header="Планируемое время">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="realTime" header="Фактическое время">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="result" header="Итого">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="lastDate" header="Дедлайн">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-        <Column field="status" header="Статус">
-          <template #body>
-            <Skeleton height="1.5rem" class="mb-2" />
-          </template>
-        </Column>
-      </DataTable>
+
+    <!-- Сообщения об отсутствии данных -->
+    <div v-else-if="!filteredTasks.length" class="text-center py-8 text-gray-500">
+      <i class="pi text-4xl mb-4" 
+        :class="{
+          'pi-calendar': !startDate || !endDate,
+          'pi-inbox': startDate && endDate && (!tasks.length || filteredTasks.message?.includes('задач')),
+          'pi-user': selectedEmployee && !filteredTasks.length && tasks.length > 0
+        }"></i>
+      
+      <template v-if="!startDate || !endDate">
+        <p>Выберите период для отображения данных</p>
+        <p class="text-sm mt-2">Укажите начальную и конечную дату</p>
+      </template>
+      <template v-else-if="loading">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+        <p class="mt-3 text-gray-600">Загрузка задач...</p>
+      </template>
+      <template v-else-if="selectedEmployee && !filteredTasks.length && tasks.length > 0">
+        <p>У выбранного сотрудника нет задач в указанный период</p>
+        <p class="text-sm mt-2">Попробуйте выбрать другого сотрудника или изменить период</p>
+      </template>
+      <template v-else>
+        <p>Нет задач для отображения в выбранном периоде</p>
+        <p class="text-sm mt-2">Попробуйте изменить фильтры или выбрать другой период</p>
+      </template>
     </div>
   </div>
 </template>
@@ -150,12 +145,11 @@
 
   const route = useRoute();
 
-  const loading = ref(true);
+  const loading = ref(false);
   const tasks = ref([]);
   const selectedEmployee = ref(null);
-  const startDate = ref(globalDates.dates.start);
-  const endDate = ref(globalDates.dates.end);
-  const skeletonData = Array(5).fill({});
+  const startDate = ref();
+  const endDate = ref();
 
   const dealId = ref();
 
@@ -170,8 +164,8 @@
     try {
       loading.value = true;
       tasks.value = dealId.value
-        ? await taskService.getDealTasks(dealId.value)
-        : await taskService.getTasks();
+        ? await taskService.getDealTasks(dealId.value,startDate.value,endDate.value)
+        : await taskService.getTasks(startDate.value,endDate.value);
       console.log("Загружено задач:", tasks.value.length);
     } catch (error) {
       console.error("Ошибка загрузки задач:", error);
@@ -223,23 +217,11 @@
   };
 
   const onRowClick = (event) => {};
-  watch(
-    () => globalDates.dates.start,
-    (newVal) => {
-      if (newVal !== startDate.value) {
-        startDate.value = newVal;
-      }
-    }
-  );
 
-  watch(
-    () => globalDates.dates.end,
-    (newVal) => {
-      if (newVal !== endDate.value) {
-        endDate.value = newVal;
-      }
-    }
-  );
+  watch([startDate, endDate], async () => {
+    if(startDate.value && endDate.value)
+      await loadTasks()
+  }, { deep: true });
   
   const excelData = computed(() => {
     const title = "Учет времени задач сотрудников";
@@ -286,7 +268,8 @@
     console.error('❌ Ошибка экспорта отчета по задачам:', errorData);
     // Можно добавить уведомление об ошибке
   };
-  onMounted(async () => {
-    await loadTasks();
-  });
+  onMounted(()=>{
+    startDate.value = globalDates.dates.start
+    endDate.value = globalDates.dates.end
+  })
 </script>

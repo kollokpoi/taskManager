@@ -67,13 +67,6 @@ export class User {
           result: (taskTimeSpent / workTime * 100).toFixed(2)
         };
       });
-    console.log("userTasks",{
-      startDateCopy,
-      endDateCopy,
-      filtered,
-      filteredTasks,
-      task:this.tasks
-    })
     const result = {
       id: this.id,
       date: startDateCopy,

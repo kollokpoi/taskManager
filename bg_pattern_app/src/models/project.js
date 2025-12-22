@@ -30,7 +30,7 @@ export class Project {
       if (this._calculationCache.has(cacheKey)) {
         return this._calculationCache.get(cacheKey);
       }
-  
+
       const result = this.tasks
         .filter(task => task.isInDateRange(startDate, endDate))
         .map(task => {
@@ -42,7 +42,11 @@ export class Project {
             resultTime: taskRow.timeEstimate - taskRow.timeSpent
           };
         });
-  
+
+      console.log("projectTasks",{
+        tasks:this.tasks,
+        result
+      })
       this._calculationCache.set(cacheKey, result);
       return result;
     }

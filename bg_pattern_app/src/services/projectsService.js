@@ -20,11 +20,8 @@ export class ProjectService {
     }
 
     try {
-      // ВАЖНО: sonet_group.get возвращает ВСЕ проекты
-      // Фильтрация по ID должна быть на уровне ответа
       const response = await bitrixService.callMethod('sonet_group.get', {
         order: { ID: 'DESC' },
-        // Можно указать только нужные поля
         select: ['ID', 'NAME']
       });
 
@@ -51,7 +48,7 @@ export class ProjectService {
    * Получает детальную информацию о проекте
    * Для получения одного проекта лучше использовать sonet_group.get со всеми полями
    */
-  async getProjectDetails(projectId) {
+  async getProjectDetails(projectId, startDate, endDate) {
     const cacheKey = `project_details_${projectId}`;
     
     if (this.projectDetailsCache.has(cacheKey)) {
@@ -76,7 +73,7 @@ export class ProjectService {
       // Параллельно загружаем участников и задачи
       const [users, tasks] = await Promise.all([
         this._getProjectUsers(projectId),
-        taskService.getProjectTasks(projectId).catch(() => [])
+        taskService.getProjectTasks(projectId, startDate, endDate).catch(() => [])
       ]);
 
       const project = new Project({
@@ -113,7 +110,7 @@ export class ProjectService {
         taskService.getProjectTasks(projectId).catch(() => [])
       ]);
 
-      const projectData = (projectResponse.result || [])[0];
+      let projectData = (projectResponse.result || [])[0];
       if (!projectData) {
         // Если через filter не нашли, попробуем получить из общего списка
         const allProjects = await this.getProjectsList();

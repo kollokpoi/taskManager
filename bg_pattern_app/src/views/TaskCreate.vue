@@ -1,21 +1,30 @@
 <template>
   <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Распланировать задачи </h1>
-    <div class="flex w-full justify-between">
+    <h1 class="text-2xl font-bold mb-4">Распланировать задачи</h1>
+    <div class="flex w-full justify-between mb-4">
       <div class="inputs flex items-center h-10">
         <DateRangePicker 
           v-model:startDate="startDate"
           v-model:endDate="endDate"
+          @change="onDatesChange"
         />
       </div>
       <ExcelCreate     
-      :excelData="excelData"
-      fileName="Планирование_задач_сотрудников.xlsx"
-      @export="handleExportSuccess"
-      @error="handleExportError"/>
+        :excelData="excelData"
+        fileName="Планирование_задач_сотрудников.xlsx"
+        @export="handleExportSuccess"
+        @error="handleExportError"
+        :disabled="!filteredUsers.length"/>
     </div>
-    <div
-      v-if="!loading && filteredUsers.length > 0"
+
+    <!-- Статус загрузки -->
+    <div v-if="loading" class="text-center py-8">
+      <ProgressSpinner style="width: 50px; height: 50px" />
+      <p class="mt-3 text-gray-600">Загрузка данных о сотрудниках...</p>
+    </div>
+
+    <!-- Таблица с данными -->
+    <div v-else-if="filteredUsers && filteredUsers.length > 0"
       class="overflow-x-auto mt-3">
         <DataTable
           :value="filteredUsers"
@@ -60,50 +69,31 @@
             </Column>
         </DataTable>
     </div>
-    <div
-      v-if="loading"
-      class="overflow-x-auto mt-3">
-      <DataTable
-        :value="skeletonData"
-        class="p-datatable-sm"
-        responsiveLayout="scroll">
-        <Column field="employerName" header="Сотрудник" >
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="taskCount" header="Задачи">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="lostTime" header="Время задач">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="workTime" header="Израсходовано фактически">
-            <template #body>
-                <Skeleton
-                  height="1.5rem"
-                  class="mb-2" />
-            </template>
-        </Column>
-        <Column field="result" header="Итого">
-          <template #body>
-            <Skeleton
-              height="1.5rem"
-              class="mb-2" />
-          </template>
-        </Column>
-      </DataTable>
+
+    <!-- Сообщения об отсутствии данных -->
+    <div v-else-if="!filteredUsers.length" class="text-center py-8 text-gray-500">
+      <i class="pi text-4xl mb-4" 
+        :class="{
+          'pi-calendar': !startDate || !endDate,
+          'pi-inbox': startDate && endDate && (!users.length || filteredUsers.message?.includes('сотрудников')),
+          'pi-spinner pi-spin': loading
+        }"></i>
+      
+      <template v-if="!startDate || !endDate">
+        <p>Выберите период для отображения данных</p>
+        <p class="text-sm mt-2">Укажите начальную и конечную дату</p>
+      </template>
+      <template v-else-if="loading">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+        <p class="mt-3 text-gray-600">Загрузка данных о сотрудниках...</p>
+      </template>
+      <template v-else>
+        <p>{{ filteredUsers.message || 'Нет данных о сотрудниках в выбранном периоде' }}</p>
+        <p class="text-sm mt-2">Попробуйте изменить период</p>
+      </template>
     </div>
+    
+    <!-- Диалог с детальной информацией -->
     <Dialog 
       v-model:visible="showDialog" 
       modal 
@@ -185,21 +175,31 @@
           Нет информации о задачах
         </div>
       </div>
-      <div class="flex w-full">
-        <Dropdown 
-          v-model="selectedUserTask"
-          :options="userTasksOptions"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Задачи" 
-          class="mr-3 flex-1"/>
-        <Button 
-          v-if="selectedUserTask"
-          label="Сохранить" 
-          class="w-1/4"
-          @click="addTaskClick"
-          autofocus 
-        />
+      
+      <!-- Блок для назначения задач -->
+      <div v-if="selectedRow && userTasksOptions.length > 1" class="mt-6 pt-6 border-t border-gray-200">
+        <h3 class="text-lg font-semibold mb-3">Назначить новую задачу</h3>
+        <div class="flex gap-3 items-center">
+          <Dropdown 
+            v-model="selectedUserTask"
+            :options="userTasksOptions"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Выберите задачу" 
+            class="flex-1"/>
+          <Button 
+            v-if="selectedUserTask"
+            label="Назначить" 
+            icon="pi pi-user-plus"
+            @click="addTaskClick"
+            autofocus />
+        </div>
+        <small class="text-gray-500 mt-2 block">Выберите задачу для назначения {{ selectedRow?.name }}</small>
+      </div>
+      
+      <div v-else-if="selectedRow" class="mt-6 pt-6 border-t border-gray-200 text-gray-500 text-sm">
+        <i class="pi pi-info-circle mr-2"></i>
+        Нет доступных задач для назначения
       </div>
     </Dialog>
   </div>
@@ -216,12 +216,11 @@
 
   const globalDates = useGlobalDates();
 
-  const startDate = ref(globalDates.dates.start);
-  const endDate = ref(globalDates.dates.end);
+  const startDate = ref();
+  const endDate = ref();
   const loading = ref(false);
   const users = ref([]);
   const userTasks = ref([])
-  const skeletonData = Array(5).fill({});
   const selectedRow = ref(null)
   const selectedUserTask = ref(null)
   const showDialog = ref(false);
@@ -230,7 +229,7 @@
   const loadUsers = async () => {
     try {
       loading.value = true;
-      users.value = await userService.getUsers();
+      users.value = await userService.getUsers(startDate.value,endDate.value);
       console.log('Загружено пользователей:', users.value.length);
     } catch (error) {
       console.error('Ошибка загрузки пользователей:', error);
@@ -309,17 +308,10 @@
     }
   };
 
-  watch(() => globalDates.dates.start, (newVal) => {
-    if (newVal !== startDate.value) {
-      startDate.value = newVal;
-    }
-  });
-
-  watch(() => globalDates.dates.end, (newVal) => {
-    if (newVal !== endDate.value) {
-      endDate.value = newVal;
-    }
-  });
+  watch([startDate, endDate], async () => {
+    if(startDate.value && endDate.value)
+      await loadUsers()
+  }, { deep: true });
   
   const excelData = computed(() => {
     const title = "Распланировать задачи сотрудников";
@@ -352,15 +344,14 @@
 
   const handleExportSuccess = (eventData) => {
     console.log('✅ Экспорт отчета по планированию успешен:', eventData);
-    // Можно добавить уведомление для пользователя
   };
 
   const handleExportError = (errorData) => {
     console.error('❌ Ошибка экспорта отчета по планированию:', errorData);
-    // Можно добавить уведомление об ошибке
   };
   onMounted( () => {
-    loadUsers();
     loadUserTasks();
+    startDate.value = globalDates.dates.start
+    endDate.value = globalDates.dates.end
   });
 </script>

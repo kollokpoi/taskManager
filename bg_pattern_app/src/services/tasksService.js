@@ -7,7 +7,74 @@ export class TaskService {
     this.tasksCache = new Map();
     this.elapsedItemsCache = new Map();
   }
+  async getTasks(startDate = null, endDate = null) {
+    try {
+      const dateStr = startDate.toISOString().split('T')[0];
+      
+      const [closedTasks, openTasks] = await Promise.all([
+          bitrixService.callMethod('tasks.task.list', {
+              "filter": {
+                  ">=CLOSED_DATE": dateStr
+              },
+              "select": this._getBaseSelect()
+          }),
+          
+          bitrixService.callMethod('tasks.task.list', {
+              filter: {
+                  "CLOSED_DATE": null
+              },
+              "select": this._getBaseSelect()
+          })
+      ]);
 
+      const allTasks = [
+          ...(closedTasks.tasks || []),
+          ...(openTasks.tasks || [])
+      ];
+      const uniqueTasks = [];
+      const seenIds = new Set();
+      
+      allTasks.forEach(task => {
+          const taskId = task.id || task.ID;
+          if (!seenIds.has(taskId)) {
+              seenIds.add(taskId);
+              uniqueTasks.push(task);
+          }
+      });
+
+      const filteredTasks = uniqueTasks.filter(task => {
+        const timeSpent = task.timeSpentInLogs || task.TIME_SPENT_IN_LOGS;
+        return timeSpent && parseInt(timeSpent) > 0;
+      });
+
+      console.log(`Задач после фильтрации: ${filteredTasks.length}`);
+      
+      if (filteredTasks.length === 0) {
+        return [];
+      }
+
+      const taskIds = filteredTasks.map(task => task.ID || task.id);
+
+      const elapsedItemsMap = await this.getTaskElapsedItemsBatch(taskIds, startDate, endDate);
+
+      const tasks = filteredTasks.map(taskData => {
+        const taskElapsedItems = elapsedItemsMap.get(taskData.ID || taskData.id) || [];
+        const dealIds = this._extractDealIdsFromUFCRMTask(taskData.ufCrmTask || taskData.UF_CRM_TASK);
+        return new Task({
+          ...taskData,
+          elapsedItems: taskElapsedItems,
+          dealIds: dealIds // Добавляем ID сделок для удобства
+        });
+      });
+
+      console.log(`Создано объектов Task: ${tasks.length}`);
+      
+      return tasks;
+    } catch (error) {
+      console.error('Ошибка в getTasks:', error);
+      throw error;
+    }
+  }
   /**
    * Получает задачи сделки с фильтрацией по периоду
    */
@@ -21,43 +88,149 @@ export class TaskService {
     // Базовый фильтр для сделки
     const filter = { "UF_CRM_TASK": `D_${dealId}` };
     
-
-    console.log("taskFilter", filter)
     const tasks = await this._fetchTasks({
       filter: filter,
       select: this._getBaseSelect()
     }, startDate, endDate); // Передаем даты для фильтрации периодов
-    console.log("tasks", tasks)
     this.tasksCache.set(cacheKey, tasks);
     setTimeout(() => this.tasksCache.delete(cacheKey), 300000);
     
     return tasks;
   }
+  /**
+   * Получает задачи сделки с фильтрацией по периоду
+   */
+  async getTaskDeals(startDate = null, endDate = null) {
+    const cacheKey = `task_deals_${startDate}_${endDate}`;
+    
+    if (this.tasksCache.has(cacheKey)) {
+        return this.tasksCache.get(cacheKey);
+    }
 
+    try {
+      const dateStr = startDate.toISOString().split('T')[0];
+      
+      const [closedTasks, openTasks] = await Promise.all([
+          bitrixService.callMethod('tasks.task.list', {
+              "filter": {
+                  "!UF_CRM_TASK": false,
+                  ">=CLOSED_DATE": dateStr
+              },
+              "select": this._getBaseSelect()
+          }),
+          
+          bitrixService.callMethod('tasks.task.list', {
+              filter: {
+                  "!UF_CRM_TASK": false,
+                  "CLOSED_DATE": null
+              },
+              "select": this._getBaseSelect()
+          })
+      ]);
+      const allTasks = [
+          ...(closedTasks.tasks || []),
+          ...(openTasks.tasks || [])
+      ];
+      const uniqueTasks = [];
+      const seenIds = new Set();
+      
+      allTasks.forEach(task => {
+          const taskId = task.id || task.ID;
+          if (!seenIds.has(taskId)) {
+              seenIds.add(taskId);
+              uniqueTasks.push(task);
+          }
+      });
+      console.log("allTasks",allTasks)
+      
+
+      const filteredTasks = allTasks.filter(task => {
+            const timeSpent = task.timeSpentInLogs || task.TIME_SPENT_IN_LOGS;
+            const hasTime = timeSpent && parseInt(timeSpent) > 0;
+            if (!hasTime) return false;
+            const ufCrmTask = task.ufCrmTask || task.UF_CRM_TASK;
+            return this._extractDealIdsFromUFCRMTask(ufCrmTask).length > 0;
+      });
+
+      console.log(`Задач после фильтрации: ${filteredTasks.length}`);
+      
+      if (filteredTasks.length === 0) {
+          return new Map();
+      }
+      const dealsMap = new Map();
+      const taskIds = filteredTasks.map(task => task.ID || task.id);
+      
+      const elapsedItemsMap = await this.getTaskElapsedItemsBatch(taskIds, startDate, endDate);
+      
+      filteredTasks.forEach(taskData => {
+        const dealIds = this._extractDealIdsFromUFCRMTask(taskData.ufCrmTask || taskData.UF_CRM_TASK);
+        const taskElapsedItems = elapsedItemsMap.get(taskData.ID || taskData.id) || [];
+        
+        const taskObj = new Task({
+          ...taskData,
+          elapsedItems: taskElapsedItems
+        });
+        
+        dealIds.forEach(dealId => {
+            if (!dealsMap.has(dealId)) {
+                dealsMap.set(dealId, []);
+            }
+            dealsMap.get(dealId).push(taskObj);
+        });
+      });
+      console.log(`Сделок с задачами: ${dealsMap.size}`);
+      
+      return dealsMap;
+
+    } catch (error) {
+        console.error('Ошибка в getTaskDeals:', error);
+        throw error;
+    }
+  }
+
+  /**
+   * Извлекает ID сделок из поля UF_CRM_TASK
+   * @private
+   */
+  _extractDealIdsFromUFCRMTask(ufCrmTask) {
+      if (!ufCrmTask || ufCrmTask === false) {
+          return [];
+      }
+      
+      const dealIds = [];
+      
+      // Если это массив
+      if (Array.isArray(ufCrmTask)) {
+          ufCrmTask.forEach(item => {
+              if (item && typeof item === 'string') {
+                  const match = item.match(/^D_(\d+)/);
+                  if (match) {
+                      dealIds.push(parseInt(match[1]));
+                  }
+              }
+          });
+      }
+      // Если это строка
+      else if (typeof ufCrmTask === 'string') {
+          const match = ufCrmTask.match(/^D_(\d+)/);
+          if (match) {
+              dealIds.push(parseInt(match[1]));
+          }
+      }
+      
+      return dealIds;
+  }
   /**
    * Получает задачи пользователя с фильтрацией по периоду
    */
-  async getUserTasks(userId, startDate = null, endDate = null, loadElapsedItems = true) {
-    const cacheKey = `user_tasks_${userId}_${startDate}_${endDate}_${loadElapsedItems}`;
-    
-    if (this.tasksCache.has(cacheKey)) {
-      return this.tasksCache.get(cacheKey);
-    }
+  async getUserTasks(userId, startDate = null, endDate = null) {
 
     const filter = { "RESPONSIBLE_ID": userId };
-    
-    // Фильтр по периоду
-    if (startDate || endDate) {
-      filter[">TIME_SPENT_IN_LOGS"] = 0;
-    }
 
     const tasks = await this._fetchTasks({
       filter: filter,
-      select: [...this._getBaseSelect(), "CLOSED_BY"]
-    }, startDate, endDate, loadElapsedItems);
-
-    this.tasksCache.set(cacheKey, tasks);
-    setTimeout(() => this.tasksCache.delete(cacheKey), 300000);
+      select: this._getBaseSelect()
+    }, startDate, endDate);
     
     return tasks;
   }
@@ -73,10 +246,6 @@ export class TaskService {
     }
 
     const filter = { "GROUP_ID": projectId };
-    
-    if (startDate || endDate) {
-      filter[">TIME_SPENT_IN_LOGS"] = 0;
-    }
 
     const tasks = await this._fetchTasks({
       filter: filter,
@@ -89,15 +258,52 @@ export class TaskService {
     return tasks;
   }
 
+ async getTaskElapsedItemsBatch(taskIds) {
+    if (!taskIds || taskIds.length === 0) {
+        return new Map();
+    }
+
+    try {
+        const BATCH_SIZE = 20;
+        const elapsedMap = new Map();
+        
+        for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
+            const batch = taskIds.slice(i, i + BATCH_SIZE);
+            
+            const batchPromises = batch.map(taskId =>
+                this.getTaskElapsedItems(taskId)
+                    .catch(error => {
+                        console.error(`Ошибка загрузки elapsedItems для задачи ${taskId}:`, error);
+                        return [];
+                    })
+            );
+            
+            const batchResults = await Promise.all(batchPromises);
+            
+            batch.forEach((taskId, index) => {
+                const elapsedItems = batchResults[index];
+                if (elapsedItems && elapsedItems.length > 0) {
+                    elapsedMap.set(taskId, elapsedItems);
+                }
+            });
+            
+            // Небольшая пауза между пакетами
+            if (i + BATCH_SIZE < taskIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        return elapsedMap;
+        
+    } catch (error) {
+        console.error('Ошибка пакетной загрузки elapsedItems:', error);
+        return new Map();
+    }
+  }
   /**
    * Получает периоды времени задачи с фильтрацией по дате
    */
-  async getTaskElapsedItems(taskId, startDate = null, endDate = null) {
-    const cacheKey = `elapsed_items_${taskId}_${startDate}_${endDate}`;
-    
-    if (this.elapsedItemsCache.has(cacheKey)) {
-      return this.elapsedItemsCache.get(cacheKey);
-    }
+  async getTaskElapsedItems(taskId) {
 
     try {
       const response = await bitrixService.callMethod('task.elapseditem.getlist', {
@@ -106,28 +312,6 @@ export class TaskService {
 
       let items = (Array.isArray(response) ? response : response.result || [])
         .map(item => new TaskElapsedItem(item));
-
-      // Фильтруем по дате если указан период
-      if (startDate || endDate) {
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate) : null;
-        
-        if (start) start.setHours(0, 0, 0, 0);
-        if (end) end.setHours(23, 59, 59, 999);
-        
-        items = items.filter(item => {
-          if (!item.createdDate) return false;
-          const itemDate = new Date(item.createdDate);
-          
-          if (start && itemDate < start) return false;
-          if (end && itemDate > end) return false;
-          return true;
-        });
-      }
-
-      this.elapsedItemsCache.set(cacheKey, items);
-      setTimeout(() => this.elapsedItemsCache.delete(cacheKey), 300000);
-      
       return items;
       
     } catch (error) {
@@ -142,7 +326,6 @@ export class TaskService {
    */
   async _fetchTasks(params, startDate = null, endDate = null, loadElapsedItems = true) {
     try {
-      // Определяем, нужно ли загружать периоды
       const shouldLoadElapsed = loadElapsedItems && startDate && endDate;
       
       const response = await bitrixService.callMethod('tasks.task.list', {
@@ -150,25 +333,17 @@ export class TaskService {
         select: this._getBaseSelect(),
         ...params
       });
-      console.log("taskResponse",response)
-
       const tasksData = this._extractTasks(response);
-      
-      // Если не нужно загружать периоды или нет дат периода
       if (!shouldLoadElapsed) {
         return tasksData.map(data => new Task(data));
       }
-
-      // Загружаем периоды только для задач, у которых есть затраченное время
       const tasksWithTimeSpent = tasksData.filter(task => 
         task.timeSpentInLogs > 0
       );
-
       if (tasksWithTimeSpent.length === 0) {
         return tasksData.map(data => new Task(data));
       }
 
-      // Параллельная загрузка периодов с фильтрацией по дате
       const tasksWithElapsed = await Promise.all(
         tasksWithTimeSpent.map(async taskData => {
           try {
@@ -177,12 +352,9 @@ export class TaskService {
               startDate, 
               endDate
             );
-            
-            // Проверяем, есть ли периоды в указанном диапазоне
             if (elapsedItems.length > 0) {
               return { ...taskData, elapsedItems };
             } else {
-              // Если нет периодов в диапазоне, возвращаем задачу без периодов
               return taskData;
             }
           } catch {
@@ -190,14 +362,13 @@ export class TaskService {
           }
         })
       );
-
-      // Собираем все задачи: с периодами и без
       const allTasks = tasksData.map(taskData => {
         const taskWithElapsed = tasksWithElapsed.find(t => t.id === taskData.id);
         return taskWithElapsed || taskData;
       });
-
-      return allTasks.map(data => new Task(data));
+      
+      const tasks = allTasks.map(data => new Task(data));
+      return tasks
       
     } catch (error) {
       console.error('Ошибка получения задач:', error);
@@ -221,54 +392,10 @@ export class TaskService {
       "STATUS", 
       "CREATED_DATE",
       "CLOSED_DATE",
-      "GROUP_ID" // Для проектных задач
+      "CLOSED_BY",
+      "GROUP_ID",
+      "UF_CRM_TASK"
     ];
-  }
-
-  /**
-   * Получает задачи с фильтрацией по времени затрат
-   * @param {Object} options - Опции фильтрации
-   * @param {Date} options.startDate - Начало периода
-   * @param {Date} options.endDate - Конец периода
-   * @param {number} options.userId - ID пользователя (опционально)
-   * @param {number} options.projectId - ID проекта (опционально)
-   * @param {number} options.dealId - ID сделки (опционально)
-   */
-  async getTasksWithTimeSpent(options = {}) {
-    const { startDate, endDate, userId, projectId, dealId } = options;
-    
-    // Строим базовый фильтр
-    const filter = {};
-    
-    if (userId) filter["RESPONSIBLE_ID"] = userId;
-    if (projectId) filter["GROUP_ID"] = projectId;
-    if (dealId) filter["UF_CRM_TASK"] = `D_${dealId}`;
-    
-    // Фильтр по наличию затраченного времени
-    filter[">TIME_SPENT_IN_LOGS"] = 0;
-    
-    // Фильтр по дате создания задачи (если нужно)
-    if (startDate) {
-      filter[">=CREATED_DATE"] = startDate.toISOString().split('T')[0];
-    }
-    if (endDate) {
-      filter["<=CREATED_DATE"] = endDate.toISOString().split('T')[0];
-    }
-
-    try {
-      const tasks = await this._fetchTasks({
-        filter: filter,
-        select: this._getBaseSelect()
-      }, startDate, endDate, true);
-
-      return tasks.filter(task => 
-        task.elapsedItems && task.elapsedItems.length > 0
-      );
-      
-    } catch (error) {
-      console.error('Ошибка получения задач с затраченным временем:', error);
-      throw error;
-    }
   }
 
   /**

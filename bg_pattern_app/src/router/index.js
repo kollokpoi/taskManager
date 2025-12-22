@@ -1,4 +1,3 @@
-// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
 import bitrixService from '../services/bitrixService';
 
@@ -52,21 +51,21 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
-
   if (to.meta?.skipAuth) {
     return next();
   }
-  
+
   const publicRoutes = ['/login', '/error'];
-  if (publicRoutes.includes(to.path)) {
+  if (publicRoutes.includes(to.path) ) {
     return next();
   }
   
   try {
-    if (!bitrixService.isInitialized) {
+    if (!bitrixService.isInitialized ) {
       await bitrixService.init();
     }
     if (!bitrixService.checkAuth()) {
+      
       console.warn('Пользователь не авторизован, перенаправление...');
 
       return next({

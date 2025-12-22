@@ -51,11 +51,11 @@ class BitrixService {
         filter: { FIELD_NAME: 'UF_CRM_PLANNED_TIME' },
         select: ['ID', 'FIELD_NAME', 'USER_TYPE_ID', 'EDIT_FORM_LABEL']
       });
+      console.log("Поле", fields)
       
       const exists = fields.length > 0;
       console.log(`Поле UF_CRM_PLANNED_TIME ${exists ? 'существует' : 'не найдено'}`);
       return exists;
-      
     } catch (error) {
       console.error('Ошибка при проверке поля UF_CRM_PLANNED_TIME:', error);
       return false;
@@ -150,148 +150,87 @@ class BitrixService {
     }
   }
   
-    async isConnected() {
-      try {
-        if (!this.isInitialized) {
-          await this.init();
-        }
-        return this.isInitialized;
-      } catch (error) {
-        return false;
+  async isConnected() {
+    try {
+      if (!this.isInitialized) {
+        await this.init();
       }
+      return this.isInitialized;
+    } catch (error) {
+      return false;
     }
+  }
   
-    callMethod(method, params = {}) {
-      return new Promise((resolve, reject) => {
-        if (!this.isInitialized) {
-          reject(
-            new Error(
-              'BX24 не инициализирован. Вызовите метод init() перед использованием callMethod()',
-            ),
-          );
-          return;
+  callMethod(method, params = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(
+          new Error(
+            'BX24 не инициализирован. Вызовите метод init() перед использованием callMethod()',
+          ),
+        );
+        return;
+      }
+      const decodedMethod = decodeURIComponent(method);
+      window.BX24.callMethod(decodedMethod, params, (result) => {
+        if (result.error()) {
+          console.error(`Ошибка при вызове метода ${method}:`, result.error());
+          reject(new Error(result.error()));
+        } else {
+          resolve(result.data());
         }
-        const decodedMethod = decodeURIComponent(method);
-        window.BX24.callMethod(decodedMethod, params, (result) => {
-          if (result.error()) {
-            console.error(`Ошибка при вызове метода ${method}:`, result.error());
-            reject(new Error(result.error()));
+      });
+    });
+  }
+
+  async placementInfo() {
+    try {
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      return await BX24.placement.info();
+    } catch (error) {
+      console.error('Ошибка при получении информации о размещении:', error);
+      throw error;
+    }
+  }
+
+  async GetUserField(entityType, entityId) {
+    try {
+      if (!entityType || !entityId) {
+        throw new Error('Не указаны обязательные параметры (entitytype или entityid)');
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        BX24.callMethod(`crm.${entityType}.get`, { id: entityId }, function (response) {
+          if (response.error()) {
+            console.error('BX24 API Error:', response.error());
+            reject(new Error(response.error()));
           } else {
-            resolve(result.data());
+            resolve(response);
           }
         });
       });
-    }
 
-    async placementInfo() {
-      try {
-        if (!this.isInitialized) {
-          await this.init();
-        }
-        return await BX24.placement.info();
-      } catch (error) {
-        console.error('Ошибка при получении информации о размещении:', error);
-        throw error;
+      // Проверяем, что результат содержит данные
+      if (!result) {
+        throw new Error('Пустой ответ от BX24 API');
       }
+
+      // Получаем данные из ответа
+      const data = result.data();
+      console.log('GetUserField:', data);
+      return data;
+    } catch (error) {
+      console.error('GetUserField failed:', {
+        entityType,
+        entityId,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw error;
     }
-  
-    async GetUserField(entityType, entityId) {
-      try {
-        if (!entityType || !entityId) {
-          throw new Error('Не указаны обязательные параметры (entitytype или entityid)');
-        }
-  
-        const result = await new Promise((resolve, reject) => {
-          BX24.callMethod(`crm.${entityType}.get`, { id: entityId }, function (response) {
-            if (response.error()) {
-              console.error('BX24 API Error:', response.error());
-              reject(new Error(response.error()));
-            } else {
-              resolve(response);
-            }
-          });
-        });
-  
-        // Проверяем, что результат содержит данные
-        if (!result) {
-          throw new Error('Пустой ответ от BX24 API');
-        }
-  
-        // Получаем данные из ответа
-        const data = result.data();
-        console.log('GetUserField:', data);
-        return data;
-      } catch (error) {
-        console.error('GetUserField failed:', {
-          entityType,
-          entityId,
-          error: error.message,
-          stack: error.stack,
-        });
-        throw error;
-      }
-    }
-  
-    async GetRequisites(entityType, entityId) {
-      try {
-        // Проверка обязательных параметров
-        if (!entityType || !entityId) {
-          throw new Error('Не указаны обязательные параметры (entityType или entityId)');
-        }
-  
-        // Маппинг типов сущностей на ID в Битрикс24
-        const entityTypeMapping = {
-          contact: 3,
-          company: 4,
-        };
-  
-        // Проверяем, что переданный тип сущности поддерживается
-        if (!entityTypeMapping[entityType]) {
-          throw new Error(`Неподдерживаемый тип сущности: ${entityType}`);
-        }
-  
-        // Выполняем запрос к API Битрикс24
-        const response = await new Promise((resolve, reject) => {
-          BX24.callMethod(
-            'crm.requisite.list',
-            {
-              order: { DATE_CREATE: 'ASC' },
-              filter: {
-                PRESET_ID: '1',
-                ENTITY_TYPE_ID: entityTypeMapping[entityType],
-                ENTITY_ID: entityId,
-              },
-              select: ['*'],
-            },
-            (response) => {
-              if (response.error()) {
-                console.error('BX24 API Error:', response.error());
-                reject(new Error(response.error()));
-              } else {
-                resolve(response);
-              }
-            },
-          );
-        });
-  
-        // Проверяем и возвращаем данные
-        if (!response.data()) {
-          throw new Error('Пустой ответ от BX24 API');
-        }
-  
-        const requisites = response.data();
-        console.log('Получены реквизиты:', requisites);
-        return requisites;
-      } catch (error) {
-        console.error('Ошибка в GetRequisites:', {
-          entityType,
-          entityId,
-          error: error.message,
-          stack: error.stack,
-        });
-        throw error;
-      }
-    }
+  }
   
   
   async getCurrentUser() {

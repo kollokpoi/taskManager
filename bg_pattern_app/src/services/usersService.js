@@ -12,7 +12,7 @@ export class UserService {
   /**
    * Получает всех пользователей
    */
-  async getUsers() {
+  async getUsers(startDate,endDate) {
     if (this.usersCache && this._isCacheValid(this.usersCache.timestamp)) {
       return this.usersCache.data;
     }
@@ -20,14 +20,13 @@ export class UserService {
     try {
       const [usersData, allUsersTasks] = await Promise.all([
         this._fetchUsers(),
-        this._fetchAllUsersTasks()
+        this._fetchAllUsersTasks(startDate,endDate)
       ]);
 
       const users = usersData.map(userData => {
         const tasks = allUsersTasks.get(userData.ID.toString()) || [];
         return new User({ ...userData, tasks });
       });
-
       this.usersCache = { 
         data: users, 
         timestamp: Date.now() 
@@ -83,7 +82,7 @@ export class UserService {
    * Параллельно загружает задачи для всех пользователей
    * @private
    */
-  async _fetchAllUsersTasks() {
+  async _fetchAllUsersTasks(startDate,endDate) {
     const users = await this._fetchUsers();
     const tasksMap = new Map();
     const batchSize = 5;
@@ -92,13 +91,12 @@ export class UserService {
       const batch = users.slice(i, i + batchSize);
       const batchPromises = batch.map(async user => ({
         userId: user.ID.toString(),
-        tasks: await taskService.getUserTasks(user.ID).catch(() => [])
+        tasks: await taskService.getUserTasks(user.ID,startDate,endDate).catch(() => [])
       }));
       
       const batchResults = await Promise.all(batchPromises);
       batchResults.forEach(({ userId, tasks }) => tasksMap.set(userId, tasks));
     }
-
     return tasksMap;
   }
 
