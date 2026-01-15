@@ -201,7 +201,6 @@
         (task) =>
           !selectedEmployee.value || task.responsibleId == selectedEmployee.value
       )
-      .filter((task) => task.isInDateRange(startDate.value, endDate.value))
       .map((task) => task.toTableRow(startDate.value, endDate.value));
   });
 

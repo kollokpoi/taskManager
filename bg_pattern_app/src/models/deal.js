@@ -5,6 +5,7 @@ export class Deal {
     this.sum = parseFloat(data.OPPORTUNITY || data.sum || 0);
     this.plannedTime = parseFloat(data.UF_CRM_PLANNED_TIME || data.plannedTime || 0);
     this.tasks = data.tasks || [];
+    this.categoryId = data.categoryId || data.CATEGORY_ID
     this._calculationCache = new Map();
   }
 

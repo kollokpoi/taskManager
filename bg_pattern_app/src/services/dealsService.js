@@ -1,6 +1,6 @@
-import bitrixService from './bitrixService.js';
-import { Deal } from '../models/deal.js';
-import { taskService } from './tasksService.js';
+import bitrixService from "./bitrixService.js";
+import { Deal } from "../models/deal.js";
+import { taskService } from "./tasksService.js";
 
 export class DealService {
   constructor() {
@@ -10,11 +10,11 @@ export class DealService {
 
   async getDeals(params = {}, startDate = null, endDate = null) {
     const cacheKey = this._generateCacheKey(params, startDate, endDate);
-    
+
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
-  
+
     try {
       const tasksMap = await taskService.getTaskDeals(startDate, endDate);
       if (tasksMap.size === 0) {
@@ -25,47 +25,58 @@ export class DealService {
       const dealIds = Array.from(tasksMap.keys());
       const dealsData = await this._fetchDeals({
         ...params,
-        filter: { ...params.filter, "ID": dealIds }
+        filter: { ...params.filter, ID: dealIds },
       });
 
       await this._loadMissingDeals(dealIds, dealsData);
-      
-      const deals = dealsData.map(dealData => 
-        new Deal({
-          ...dealData,
-          tasks: tasksMap.get(parseInt(dealData.ID)) || []
-        })
+
+      const deals = dealsData.map(
+        (dealData) =>
+          new Deal({
+            ...dealData,
+            tasks: tasksMap.get(parseInt(dealData.ID)) || [],
+          })
       );
 
       this.cache.set(cacheKey, deals);
       setTimeout(() => this.cache.delete(cacheKey), this.CACHE_DURATION);
-      
+
       return deals;
     } catch (error) {
-      console.error('Ошибка получения сделок:', error);
+      console.error("Ошибка получения сделок:", error);
       throw error;
     }
   }
 
   async _fetchDeals(params) {
-    const response = await bitrixService.callMethod('crm.deal.list', {
-      order: { DATE_CREATE: 'DESC' },
-      select: ['ID', 'TITLE', 'OPPORTUNITY', 'UF_CRM_PLANNED_TIME', 'STAGE_ID', 'STAGE_NAME'],
-      ...params
+    const response = await bitrixService.callMethod("crm.deal.list", {
+      order: { DATE_CREATE: "DESC" },
+      select: [
+        "ID",
+        "TITLE",
+        "OPPORTUNITY",
+        "UF_CRM_PLANNED_TIME",
+        "STAGE_ID",
+        "STAGE_NAME",
+        "CATEGORY_ID"
+      ],
+      ...params,
     });
-    
+
     return response.result || response || [];
   }
 
   async _loadMissingDeals(dealIds, dealsData) {
-    const foundDealIds = dealsData.map(deal => parseInt(deal.ID));
-    const missingIds = dealIds.filter(id => !foundDealIds.includes(id));
-    
+    const foundDealIds = dealsData.map((deal) => parseInt(deal.ID));
+    const missingIds = dealIds.filter((id) => !foundDealIds.includes(id));
+
     if (missingIds.length === 0) return;
 
     for (const missingId of missingIds) {
       try {
-        const missingDeal = await bitrixService.callMethod('crm.deal.get', { id: missingId });
+        const missingDeal = await bitrixService.callMethod("crm.deal.get", {
+          id: missingId,
+        });
         if (missingDeal?.result) {
           dealsData.push(missingDeal.result);
         }
@@ -75,8 +86,24 @@ export class DealService {
     }
   }
 
+  async loadCategories() {
+    const cacheKey = "categories";
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey);
+    }
+    try {
+      const response = await bitrixService.callMethod("crm.category.list", {
+        entityTypeId: 2,
+      });
+      return response.categories || response || [];
+    } catch (error) {
+      console.error("Ошибка получения категорий:", error);
+      throw error;
+    }
+  }
+
   _generateCacheKey(params, startDate, endDate) {
-    const dateKey = startDate || endDate ? `_${startDate}_${endDate}` : '';
+    const dateKey = startDate || endDate ? `_${startDate}_${endDate}` : "";
     return `deals_${JSON.stringify(params)}${dateKey}`;
   }
 

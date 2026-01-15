@@ -6,7 +6,6 @@
         <DateRangePicker 
           v-model:startDate="startDate"
           v-model:endDate="endDate"
-          @change="onDatesChange"
         />
         <Dropdown 
           v-model="selectedUser"

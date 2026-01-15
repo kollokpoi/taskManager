@@ -42,13 +42,15 @@
       initialized.value = true;
       authorized.value = bitrixService.checkAuth();
       
+      
+
       if (!authorized.value) {
         console.warn('Приложение инициализировано, но нет авторизации');
       }
       
     } catch (error) {
       console.error('Ошибка инициализации:', error);
-      initialized.value = true; // все равно показываем, что инициализация завершена
+      initialized.value = true;
       authorized.value = false;
     }
   };

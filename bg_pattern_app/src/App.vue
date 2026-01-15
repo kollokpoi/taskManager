@@ -6,4 +6,5 @@
 
 <script setup>
 import AuthGuard from './components/AuthGuard.vue';
+
 </script>
