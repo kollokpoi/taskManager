@@ -43,11 +43,8 @@ export class UserService {
   async getCurrentUser() {
     try {
       const user = await bitrixService.getCurrentUser();
-      return new User({
-        id: user.ID,
-        name: user.NAME,
-        lastName: user.LAST_NAME,
-      });
+      console.log("user", user);
+      return new User(user);
     } catch (error) {
       console.error("Ошибка получения текущего пользователя:", error);
       throw error;
@@ -67,29 +64,26 @@ export class UserService {
       data: response.result || response || [],
       timestamp: Date.now(),
     };
+    console.log("shortUser", {
+      shortUsers: this.shortUsers,
+      response,
+    });
     return response.result || response || [];
   }
 
   async _fetchAllUsersTasks(users, startDate, endDate) {
-    const tasksMap = new Map();
-    const batchSize = 5;
+    const tasks = await taskService.getUserListTasks(users, startDate, endDate);
+    const tasksByRespId = new Map();
 
-    for (let i = 0; i < users.length; i += batchSize) {
-      const batch = users.slice(i, i + batchSize);
-      const batchPromises = batch.map(async (user) => ({
-        userId: user.ID.toString(),
-        tasks: await taskService
-          .getUserTasks(user.ID, startDate, endDate)
-          .catch((error) => {
-            console.log(error);
-          }),
-      }));
+    tasks.forEach((item) => {
+      const respId = item.responsibleId;
+      if (!tasksByRespId.has(respId)) {
+        tasksByRespId.set(respId, []);
+      }
+      tasksByRespId.get(respId).push(item);
+    });
 
-      const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach(({ userId, tasks }) => tasksMap.set(userId, tasks));
-    }
-
-    return tasksMap;
+    return tasksByRespId;
   }
 
   _isCacheValid(timestamp) {

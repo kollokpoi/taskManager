@@ -174,13 +174,31 @@ class BitrixService {
       //      console.error(`Сетевая ошибка при вызове метода ${method}:`, error);
       //      reject(new Error(error.message));
       //    });
-
+      let allData = [];
       window.BX24.callMethod(method, params, (result) => {
         if (result.error()) {
           console.error(`Ошибка при вызове метода ${method}:`, result.error());
           reject(new Error(result.error()));
         } else {
-          resolve(result.data());
+          const data = result.data();
+
+          console.log("data", {
+            allData,
+            result: data,
+            total: result.total(),
+          });
+          if (result.total() > 1) {
+            const items = data.tasks || data;
+            allData = allData.concat(Array.isArray(items) ? items : [items]);
+
+            if (result.more()) {
+              result.next();
+            } else {
+              resolve(allData);
+            }
+          } else {
+            resolve(data.tasks || data);
+          }
         }
       });
     });

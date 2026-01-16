@@ -170,18 +170,22 @@ const loadCategories = async () => {
 const dealsWithCosts = computed(() => {
   if (startDate.value && endDate.value && deals.value) {
     const filtred = deals.value
-    .filter(deal=>selectedCategory.value===null || deal.categoryId == selectedCategory.value)
-    .map((deal) =>
-      deal.toTableRow(wage.value, startDate.value, endDate.value)
-    );
+      .filter(
+        (deal) =>
+          selectedCategory.value === null ||
+          deal.categoryId == selectedCategory.value
+      )
+      .map((deal) =>
+        deal.toTableRow(wage.value, startDate.value, endDate.value)
+      );
     console.log("filtred", filtred);
     return filtred;
   } else return [];
 });
 
 const categoryOptions = computed(() => {
-  if(!categories.value){
-    return [{ id: null, name: "Все категории" }]
+  if (!categories.value) {
+    return [{ id: null, name: "Все категории" }];
   }
 
   const categoryMap = new Map();
@@ -228,7 +232,7 @@ const rowClassFunction = (data) => {
 };
 
 const onDatesChange = ({ start, end }) => {
-  globalDates.updateDates(start, end);
+  if (start && end) globalDates.updateDates(start, end);
 };
 
 const excelData = computed(() => {

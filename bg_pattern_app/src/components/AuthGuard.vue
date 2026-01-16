@@ -42,7 +42,6 @@
       initialized.value = true;
       authorized.value = bitrixService.checkAuth();
       
-      
 
       if (!authorized.value) {
         console.warn('Приложение инициализировано, но нет авторизации');
