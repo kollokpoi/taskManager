@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+<!-- Подключение jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Подключение CSS Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Подключение JavaScript Select2 -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <title>Детали сделки</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #cccccc;
+        }
+        .overdue {
+            background-color: #ffcccc; /* Цвет для просроченных задач */
+        }
+        .overdue2 {
+            background-color: #72caf3; /* Цвет для просроченных задач */
+        }
+        .overdue3 {
+            background-color: #72f387; /* Цвет для просроченных задач */
+        }
+        input[type="button"] {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 0; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        input[type="button"]:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="button" id="Glavnaya" value="На главную">
+        <input type="button" id="Calendar" value="Календарь">
+        <input type="button" id="exportButton" value="Экспорт Excel">
+        <span id="createdDateDisplay"></span>
+    </form>
+    <div id="dealInfo"></div>
+    <div id="tasks">
+
+        <div style="margin-top: 10px; margin-bottom: 10px;">
+        <label for="employeeFilter">Выберите сотрудника:</label>
+        <select id="employeeFilter" multiple>
+            <option value="">Все сотрудники</option>
+        </select>
+    </div>
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Имя сотрудника</th>
+                    <th>Количество задач</th>
+                    <th>Затраченное время (ч)</th>
+                    <th>Рабочее время (ч)</th>
+                    <th>Итого (ч)/Процент затраченного времени</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>Итого</strong></td>
+                    <td id="totalTasks"><strong>0</strong></td>
+                    <td></td>
+                    <td id="totalActualTime"><strong>0</strong></td>
+                    <td id="totalWorkingTime"><strong>0</strong></td>
+                    <td id="totalItogo"><strong>0</strong></td>
+                </tr>
+            </tr>
+                    <td colspan="4"><strong>Процент не затраченного времени(Остаток)</strong></td>
+                    <td id="totalUnusedPercentage"><strong>0%</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div id="loading" style="display: none; text-align: center;">
+        <img src="https://bg59.online/We/loading_big.gif" alt="Loading...">
+    </div>
+    <script src="https://api.bitrix24.com/api/v1/"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tbody = document.querySelector('#tasksTable tbody');
+    var userId;
+    var createdtime = new URLSearchParams(window.location.search).get('CD');
+    var createdtime2 = new URLSearchParams(window.location.search).get('CD2');
+    var responsibleId = new URLSearchParams(window.location.search).get('ID'); // Получаем ID ответственного из URL
+
+    // Проверка и подстановка значений
+    if (createdtime === "undefined.undefined.") {
+        createdtime = createdtime2;
+    }
+    if (createdtime2 === "undefined.undefined.") {
+        createdtime2 = createdtime;
+    }
+
+    // Установите значение элемента для отображения даты
+    document.getElementById('createdDateDisplay').textContent = `С ${createdtime} по ${createdtime2}`;
+    document.getElementById('loading').style.display = 'block';
+    BX24.init(function() {
+        BX24.callMethod('profile', {}, function(result) {
+            userId = result.data().ID;
+
+            var parts = createdtime.split('.');
+            var parts2 = createdtime2.split('.');
+            
+            var startDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            var endDate = new Date(parts2[2], parts2[1] - 1, parts2[0]);
+
+            // Проверка на корректность дат и подстановка другой даты, если одна из них недействительна
+            if (isNaN(startDate.getTime())) {
+                startDate = endDate;
+            }
+            if (isNaN(endDate.getTime())) {
+                endDate = startDate;
+            }
+
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+
+            var tasksArray = [];
+            var uniqueTasks = new Map(); // Для хранения уникальных задач
+            var requestsCompleted = 0; // Счетчик завершенных запросов
+
+            function processTasks(response) {
+                if (response.error()) {
+                    console.error(response.error());
+                    window.location.reload(); // Перезагружаем страницу при ошибке
+                } else {
+                    response.data().tasks.forEach(task => {
+                        if (!uniqueTasks.has(task.id) && !task.title.includes("Учёт нерабочего времени:")) {
+                            uniqueTasks.set(task.id, task);
+                            tasksArray.push(task);
+                        }
+                    });
+                    if (response.more()) {
+                        response.next();
+                    } else {
+                        requestsCompleted++;
+                        if (requestsCompleted === 2) { // Проверяем, что оба запроса завершены
+                            fetchLogsForTasks();
+                        }
+                    }
+                }
+            }
+
+            function fetchLogsForTasks() {
+    const taskIds = tasksArray.map(task => task.id); // Получаем массив ID задач
+
+    getTimeSpentInLogsBatch(taskIds, function(timeSpentByTask) {
+        // Обновляем данные в tasksArray
+        tasksArray.forEach((task, index) => {
+            tasksArray[index].timeSpentInLogs = timeSpentByTask[task.id] || {};
+        });
+
+        // Рендерим задачи
+        renderTasks();
+    });
+}
+            function renderTasks() {
+    var fragment = document.createDocumentFragment(); // Используем фрагмент для минимизации операций с DOM
+    var taskData = {};
+    var uniqueDates = new Set(); // Для хранения уникальных дат
+
+    console.log("Rendering tasks...");
+    console.log("Tasks array:", tasksArray);
+
+    // Извлекаем параметры из URL
+    var urlParams = new URLSearchParams(window.location.search);
+    var startDate = urlParams.get('CD');
+    var endDate = urlParams.get('CD2');
+    var workingtime = parseFloat(urlParams.get('WT'));
+
+    // Преобразуем startDate и endDate в объекты Date
+    var startDateObj = new Date(startDate.split('.').reverse().join('-'));
+    var endDateObj = new Date(endDate.split('.').reverse().join('-'));
+
+    tasksArray.forEach(item => {
+        var timeSpentByDate = item.timeSpentInLogs || {};
+        var responsibleId = item.responsibleId;
+        var responsibleName = item.responsible.name;
+
+        Object.keys(timeSpentByDate).forEach(date => {
+            var actualTime = timeSpentByDate[date];
+            if (actualTime === 0) {
+                return; // Пропускаем задачи с фактическим временем 0
+            }
+
+            if (!taskData[date]) {
+                taskData[date] = {};
+            }
+
+            if (!taskData[date][responsibleId]) {
+                taskData[date][responsibleId] = { count: 0, timeSpent: 0, name: responsibleName, id: responsibleId, tasks: [] };
+            }
+            taskData[date][responsibleId].count++;
+            if (actualTime !== null) {
+                var timeInHoursSpent = actualTime / 3600;
+                if (!isNaN(timeInHoursSpent)) {
+                    taskData[date][responsibleId].timeSpent += timeInHoursSpent;
+                }
+            }
+            taskData[date][responsibleId].tasks.push({ title: item.title, timeSpent: actualTime / 3600, id: item.id, status: item.status, timeEstimate: item.timeEstimate });
+        });
+    });
+
+    console.log("Task data:", taskData);
+
+    // Сортируем даты
+    var sortedDates = Object.keys(taskData).sort((a, b) => {
+        var dateA = new Date(a.split('.').reverse().join('-'));
+        var dateB = new Date(b.split('.').reverse().join('-'));
+        return dateA - dateB;
+    });
+
+    sortedDates.forEach(function(date) {
+        var currentDate = new Date(date.split('.').reverse().join('-'));
+
+        // Проверяем, находится ли дата в пределах startDate и endDate
+        if (currentDate > endDateObj || currentDate < startDateObj) {
+            return; // Пропускаем эту дату
+        }
+
+        if (!uniqueDates.has(date)) {
+            uniqueDates.add(date);
+            var dateRow = document.createElement('tr');
+            var dateCell = document.createElement('td');
+            dateCell.colSpan = 6; // Увеличиваем colspan на 1 для нового столбца
+            dateCell.style.fontWeight = 'bold';
+            dateCell.textContent = date;
+            dateRow.appendChild(dateCell);
+            fragment.appendChild(dateRow);
+        }
+
+        Object.values(taskData[date]).forEach(function(data) {
+            var totalHours = data.timeSpent;
+            var daysBetween = (endDateObj - startDateObj) / (1000 * 60 * 60 * 24);
+            var workingTimeTotal = workingtime;
+            var itogo = workingTimeTotal - totalHours;
+            const percent = (data.timeSpent.toFixed(1) / workingtime ) * 100;
+
+            var row = document.createElement('tr');
+            row.innerHTML =
+                '<td>' + date + '</td>' +
+                '<td class="employee-name" data-responsible-id="' + data.id + '">' + data.name + '</td>' +
+                '<td>' + data.count + '</td>' +
+                '<td>' + data.timeSpent.toFixed(1) + '</td>' +
+                '<td>' + workingTimeTotal.toFixed(1) + '</td>' + // Добавляем столбец для общего рабочего времени
+                '<td>' + itogo.toFixed(1) + " — "+ percent.toFixed(1) + "%" +'</td>'; // Добавляем столбец для итого
+            fragment.appendChild(row);
+        });
+    });
+
+    var tbody = document.querySelector('tbody'); // Убедитесь, что у вас есть элемент <tbody> в HTML
+    tbody.innerHTML = ''; // Очистка текущего содержимого таблицы
+    tbody.appendChild(fragment); // Вставляем фрагмент в DOM за один раз
+    recalculateTotals();
+
+    // Добавляем обработчики событий для имен сотрудников
+    var employeeNames = document.querySelectorAll('.employee-name');
+    employeeNames.forEach(function(nameCell) {
+        nameCell.addEventListener('click', function() {
+            var responsibleId = nameCell.getAttribute('data-responsible-id');
+            var date = nameCell.parentElement.firstChild.textContent;
+            toggleTaskDetails(responsibleId, date, nameCell.parentElement);
+        });
+    });
+    document.getElementById('loading').style.display = 'none';
+}
+
+            function toggleTaskDetails(responsibleId, date, clickedRow) {
+    var rows = tbody.querySelectorAll('tr');
+    var showDetails = true;
+
+    rows.forEach(function(row) {
+        if (row.classList.contains('task-details') && row.getAttribute('data-responsible-id') === responsibleId && row.getAttribute('data-date') === date) {
+            showDetails = false;
+            row.remove();
+        }
+    });
+
+    if (showDetails) {
+        var nextRow = clickedRow.nextSibling;
+        tasksArray.forEach(function(task) {
+            var timeSpentByDate = task.timeSpentInLogs || {};
+            if (timeSpentByDate[date] && task.responsibleId == responsibleId) {
+                var statusText = getStatusText(task.status); // Получаем текст статуса
+                console.log('Status text:', statusText); // Выводим текст статуса в консоль
+
+                var row = document.createElement('tr');
+                row.classList.add('task-details');
+                row.setAttribute('data-responsible-id', responsibleId);
+                row.setAttribute('data-date', date);
+                row.setAttribute('data-task-id', task.id); // Добавляем ID задачи
+
+                row.innerHTML =
+                    '<td></td>' +
+                    '<td class="task-title">' + task.title + ' (' + statusText + ')</td>' + // Используем текст статуса
+                    '<td></td>' +
+                    '<td>' + (timeSpentByDate[date] / 3600).toFixed(1) + '</td>' +
+                    '<td>' + (task.timeEstimate / 3600).toFixed(1) + ' (Общее планируемое время часы)</td>'; // Добавляем планируемое время с подписью
+                tbody.insertBefore(row, nextRow);
+                nextRow = row.nextSibling;
+            }
+        });
+
+        // Добавляем обработчики событий для строк с деталями задач
+        var taskDetailsRows = document.querySelectorAll('.task-details');
+        taskDetailsRows.forEach(function(detailRow) {
+            detailRow.addEventListener('click', function() {
+                var taskId = detailRow.getAttribute('data-task-id');
+                openTaskInBitrix(taskId);
+            });
+        });
+    }
+}
+
+            function openTaskInBitrix(taskId) {
+                BX24.init(function() {
+                    BX24.openPath(
+                        `/company/personal/user/${userId}/tasks/task/view/${taskId}/`,
+                        function(result) {
+                            console.log(result);
+                        }
+                    );
+                });
+            }
+
+            function recalculateTotals() {
+    var totalTasks = 0;
+    var totalActualTime = 0;
+    var totalWorkingTime = 0;
+    var totalItogo = 0;
+
+    var rows = tbody.querySelectorAll('tr');
+    rows.forEach(function(row) {
+        if (row.cells.length >= 5) { // Проверяем, что в строке достаточно ячеек
+            var actualTime = parseFloat(row.cells[3].textContent) || 0;
+            var workingTime = parseFloat(row.cells[4].textContent) || 0;
+            var itogo = parseFloat(row.cells[5].textContent) || 0;
+
+            totalTasks++;
+            totalActualTime += actualTime;
+            totalWorkingTime += workingTime;
+            totalItogo += itogo;
+        }
+    });
+
+    document.getElementById('totalTasks').innerHTML = '<strong>' + totalTasks + '</strong>';
+    document.getElementById('totalActualTime').innerHTML = '<strong>' + totalActualTime.toFixed(1) + '</strong>';
+    document.getElementById('totalWorkingTime').innerHTML = '<strong>' + totalWorkingTime.toFixed(1) + '</strong>';
+    document.getElementById('totalItogo').innerHTML = '<strong>' + totalItogo.toFixed(1) + '</strong>';
+
+    // Рассчитываем процент незатраченного времени
+    var totalUnusedPercentage = (totalItogo / totalWorkingTime) * 100;
+    document.getElementById('totalUnusedPercentage').innerHTML = '<strong>' + totalUnusedPercentage.toFixed(1) + '%</strong>';
+}
+
+            function exportTableToExcel(tableID, filename = ''){
+                var downloadLink;
+                var dataType = 'application/vnd.ms-excel';
+                var tableSelect = document.getElementById(tableID);
+                var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+                
+                // Устанавливаем имя файла
+                filename = filename ? filename + '.xls' : 'excel_data.xls';
+                
+                // Создаем ссылку для скачивания
+                downloadLink = document.createElement("a");
+                
+                document.body.appendChild(downloadLink);
+                
+                if(navigator.msSaveOrOpenBlob){
+                    var blob = new Blob(['\ufeff', tableHTML], {
+                        type: dataType
+                    });
+                    navigator.msSaveOrOpenBlob(blob, filename);
+                } else {
+                    // Создаем ссылку на файл
+                    downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+                
+                    // Устанавливаем имя файла
+                    downloadLink.download = filename;
+                    
+                    // Инициируем скачивание
+                    downloadLink.click();
+                }
+            }
+
+            document.getElementById('exportButton').addEventListener('click', function() {
+                exportTableToExcel('tasksTable', 'data');
+            });
+
+            function getTimeSpentInLogsBatch(taskIds, callback) {
+    console.log('Fetching logs for task IDs:', taskIds);
+
+    // Инициализация BX24
+    BX24.init(function() {
+        const batchSize = 50; // Максимальное количество запросов в одном batch
+        const totalBatches = Math.ceil(taskIds.length / batchSize); // Количество batch-запросов
+        let completedBatches = 0;
+        const timeSpentByTask = {};
+
+        // Функция для выполнения одного batch-запроса
+        function executeBatch(batchTaskIds) {
+            const batchCalls = batchTaskIds.map(taskId => ({
+                method: 'task.elapseditem.getlist',
+                params: { TASKID: taskId }
+            }));
+
+            // Выполняем batch-запрос
+            BX24.callBatch(batchCalls, function(results) {
+                // Обрабатываем результаты
+                results.forEach((result, index) => {
+                    const taskId = batchTaskIds[index];
+
+                    if (result.error()) {
+                        console.error(`Error fetching logs for task ID ${taskId}:`, result.error());
+                        timeSpentByTask[taskId] = {}; // Возвращаем пустой объект в случае ошибки
+                    } else {
+                        const timeSpentByDate = {};
+                        result.data().forEach(logItem => {
+                            const logDate = new Date(logItem.CREATED_DATE);
+                            if (logDate >= startDate && logDate < endDate) {
+                                const logDateString = logDate.toLocaleDateString('ru-RU');
+                                if (!timeSpentByDate[logDateString]) {
+                                    timeSpentByDate[logDateString] = 0;
+                                }
+                                const timeSpentInSeconds = parseInt(logItem.SECONDS, 10);
+                                if (!isNaN(timeSpentInSeconds)) {
+                                    timeSpentByDate[logDateString] += timeSpentInSeconds;
+                                }
+                            }
+                        });
+                        console.log('Total time spent for task ID', taskId, ':', timeSpentByDate);
+                        timeSpentByTask[taskId] = timeSpentByDate;
+                    }
+                });
+
+                // Увеличиваем счетчик выполненных batch-запросов
+                completedBatches++;
+
+                // Если все batch-запросы выполнены, вызываем callback
+                if (completedBatches === totalBatches) {
+                    callback(timeSpentByTask);
+                }
+            });
+        }
+
+        // Разбиваем taskIds на части и выполняем batch-запросы
+        for (let i = 0; i < taskIds.length; i += batchSize) {
+            const batchTaskIds = taskIds.slice(i, i + batchSize);
+            executeBatch(batchTaskIds);
+        }
+    });
+}
+            function getStatusText(status) {
+    status = parseInt(status, 10);
+    switch (status) {
+        case 1: return 'Новая';
+        case 2: return 'Ждёт выполнения';
+        case 3: return 'В работе';
+        case 4: return 'Ждёт подтверждения постановщика';
+        case 5: return 'Выполнено';
+        case 6: return 'Определяемое';
+        case 7: return 'Декларировано';
+        case -1: return 'Просрочена';
+        case -2: return 'Не просмотрена';
+        case -3: return 'почти просрочена';
+        default: return 'Неизвестный статус';
+    }
+}
+
+                        var newdatestart = startDate;
+                        newdatestart.setDate(newdatestart.getDate() - 3);
+                        var newdateend = endDate;
+
+document.getElementById('Glavnaya').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+
+    document.getElementById('Calendar').addEventListener('click', function() {
+        BX24.init(function() {
+            const portalUrl = BX24.getDomain();
+            window.location.href = `https://${portalUrl}company/personal/user/${userId}/tasks/employee/plan/?FILTER_OWNER=230&MEMBER[USER][]=${responsibleId}&TASK[DATE_RANGE][FROM]=${createdtime}%2000%3A00%3А00&TASK[DATE_RANGE][TO]=22.06.2024%2000%3А00%3А00`;
+        });
+    });
+
+            // Запрос для задач, созданных в указанный период
+            if(createdtime !== createdtime2){
+                newdate = new Date(); // Сегодняшний день
+                Promise.all([
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            
+                            'tasks.task.list',
+                            {
+                                order: { "CHANGED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CHANGED_DATE": startDate.toISOString(),
+                                    "<=CHANGED_DATE": endDate.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                                console.log(response);
+                            }
+                        );
+                        })
+                    }),
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            'tasks.task.list',
+                            {
+                                order: { "CREATED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CREATED_DATE": newdatestart.toISOString(),
+                                    "<=CREATED_DATE": newdateend.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                                console.log(response);
+                            }
+                        );
+                        })
+                    }),
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            'tasks.task.list',
+                            {
+                                order: { "CLOSED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CLOSED_DATE": newdatestart.toISOString(),
+                                    "<=CLOSED_DATE": newdateend.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                                console.log(response);
+                            }
+                        );
+                        })
+                    })
+                ]).then(() => {
+                    console.log("Создавние функции"); fetchLogsForTasks();
+                });
+            } else {
+                console.log("Даты равны");
+                console.log(endDate);
+                var newdate = endDate;
+                //newdate.setDate(newdate.getDate() + 1);
+                Promise.all([
+
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            'tasks.task.list',
+                            {
+                                order: { "CHANGED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CHANGED_DATE": startDate.toISOString(),
+                                    "<CHANGED_DATE": endDate.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                            }
+                        );
+                        })
+                    }),
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            'tasks.task.list',
+                            {
+                                order: { "CREATED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CREATED_DATE": newdatestart.toISOString(),
+                                    "<=CREATED_DATE": newdateend.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                            }
+                        );
+                        })
+                    }),
+                    new Promise((resolve, reject) => {
+                        BX24.init(function() {
+                        BX24.callMethod(
+                            'tasks.task.list',
+                            {
+                                order: { "CLOSED_DATE": "DESC" },
+                                filter: {
+                                    "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                                    ">=CLOSED_DATE": newdatestart.toISOString(),
+                                    "<=CLOSED_DATE": newdateend.toISOString()
+                                },
+                                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                            },
+                            function(response) {
+                                processTasks(response);
+                                resolve();
+                            }
+                        );
+                        })
+                    })
+                ]).then(() => {
+                    fetchLogsForTasks();
+                });
+            }
+        });
+    });
+
+
+// Получение списка сотрудников через BX24
+function fetchEmployees() {
+    BX24.callMethod(
+        "user.get",
+        {
+            ORDER: { ID: "ASC" },
+            FILTER: { ACTIVE: "Y" },
+            SELECT: ["ID", "NAME", "LAST_NAME", "EMAIL", "WORK_POSITION"],
+        },
+        function(result) {
+            if (result.error()) {
+                console.error(result.error());
+            } else {
+                const employees = result.data(); // Получаем массив сотрудников
+                populateEmployeeFilter(employees); // Заполняем выпадающий список
+            }
+        }
+    );
+}
+
+// Заполнение выпадающего списка сотрудниками
+function populateEmployeeFilter(employees) {
+    const select = $("#employeeFilter"); // Используем jQuery для выбора элемента
+    select.empty().append('<option value="">Все сотрудники</option>'); // Очищаем список
+
+    employees.forEach((employee) => {
+        const option = new Option(employee.NAME + " " + employee.LAST_NAME, employee.ID); // Создаем новый option
+        select.append(option); // Добавляем option в список
+    });
+
+    select.select2({
+    width: "resolve",
+    placeholder: "Выберите сотрудников",
+    allowClear: true,
+    dropdownAutoWidth: true,
+    multiple: true,
+    closeOnSelect: false 
+});
+}
+
+// Фильтрация строк таблицы
+function filterTable() {
+    const selectedEmployeeIds = $("#employeeFilter").val() || []; // Get array of selected values
+    const rows = $("#tasksTable tbody tr");
+
+    rows.each(function () {
+        const employeeNameCell = $(this).find(".employee-name");
+        const employeeId = employeeNameCell.data("responsibleId");
+
+        // Check if there's no responsible ID
+        if (!employeeId) {
+            $(this).hide();
+            return;
+        }
+
+        // Show if no filters selected or if this employee is in the selected array
+        if (selectedEmployeeIds.length === 0 || selectedEmployeeIds.includes(employeeId.toString())) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+
+    updateTotals();
+}
+
+// Обновление итоговых значений
+function updateTotals() {
+    const rows = $("#tasksTable tbody tr:visible"); // Только видимые строки
+    let totalTasks = 0;
+    let totalActualTime = 0;
+    let totalWorkingTime = 0;
+
+    rows.each(function () {
+        const tasks = parseFloat($(this).find("td:eq(2)").text()) || 0;
+        const actualTime = parseFloat($(this).find("td:eq(3)").text()) || 0;
+        const workingTime = parseFloat($(this).find("td:eq(4)").text()) || 0;
+
+        totalTasks += tasks;
+        totalActualTime += actualTime;
+        totalWorkingTime += workingTime;
+    });
+
+    // Обновляем значения в footer таблицы с жирным шрифтом
+    $("#totalTasks").text(totalTasks.toFixed(0)).css("font-weight", "bold");
+    $("#totalActualTime").text(totalActualTime.toFixed(2)).css("font-weight", "bold");
+    $("#totalWorkingTime").text(totalWorkingTime.toFixed(2)).css("font-weight", "bold");
+
+    const totalItogo = `${totalActualTime.toFixed(2)} / ${(totalActualTime / totalWorkingTime * 100).toFixed(2)}%`;
+    $("#totalItogo").text(totalItogo).css("font-weight", "bold");
+
+    const unusedPercentage = ((1 - totalActualTime / totalWorkingTime) * 100).toFixed(2) + "%";
+    $("#totalUnusedPercentage").text(unusedPercentage).css("font-weight", "bold");
+}
+
+// Инициализация
+$(document).ready(function () {
+    fetchEmployees(); // Получаем список сотрудников
+
+    // Обработчик изменения фильтра
+    $("#employeeFilter").on("change", function () {
+        filterTable(); // Фильтруем таблицу
+    });
+
+    // Начальное обновление итогов
+    updateTotals();
+});
+
+
+});
+
+</script>
+</body>
+</html>

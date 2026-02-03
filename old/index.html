@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quick start. Local static application</title>
+    <style>
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      .overdue {
+        background-color: #ffcccc;
+      }
+      tr {
+        cursor: pointer;
+      }
+      tr:hover {
+        background-color: #ddd;
+      }
+      .overdue3 {
+        background-color: #72f387;
+      }
+      .overdue4 {
+        background-color: #f5f84a;
+      }
+      .overdue2 {
+        background-color: #72caf3;
+      }
+      .button-link {
+        background-color: #72caf3;
+        border: 2px solid black;
+        color: rgb(0, 0, 0);
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        font-size: 14px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 6px;
+        font-weight: bold;
+      }
+      .button-link:hover {
+        background-color: #3b7981;
+      }
+      .button-link img {
+        margin-right: 8px;
+        width: 22px;
+        height: 22px;
+      }
+      .support-button {
+        background-color: #6ceca1;
+      }
+      .support-button:hover {
+        background-color: #45a049;
+      }
+      .support-button img {
+        width: 18px;
+        height: auto;
+      }
+      input[type='date'],
+      input[type='text'] {
+        background-color: #f2f2f2;
+        border: 2px solid black;
+        color: #333;
+        padding: 2px 4px;
+        font-size: 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        width: 128px;
+        box-sizing: border-box;
+        position: relative;
+        top: 12px;
+      }
+      input[type='date']::placeholder,
+      input[type='text']::placeholder {
+        color: #3b7981;
+        font-weight: normal;
+      }
+      input[type='date']:focus,
+      input[type='text']:focus {
+        border-color: #61b8f1;
+        outline: none;
+        box-shadow: 0 0 5px rgba(76, 175, 175, 0.5);
+      }
+      .button-container {
+        display: flex;
+        gap: 10px;
+      }
+      .button-with-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .error-message {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .instruction {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+      }
+      .date-container {
+        display: flex;
+        align-items: center;
+      }
+      .date-container span {
+        margin: 0 5px;
+        font-size: 18px;
+        line-height: 32px;
+      }
+
+      /* Стили для модального окна регистрации */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+      .modal-title {
+        font-size: 24px;
+        margin-bottom: 20px;
+        text-align: center;
+        color: #333;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .form-submit {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+      }
+      .form-submit:hover {
+        background-color: #45a049;
+      }
+      .required-field::after {
+        content: ' *';
+        color: red;
+      }
+      .loading-spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+      #registrationError {
+        color: red;
+        margin-top: 10px;
+        text-align: center;
+        display: none;
+      }
+      .form-group.consent-group {
+        margin-top: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: flex-start;
+      }
+
+      .form-group.consent-group input[type='checkbox'] {
+        margin-right: 8px;
+        margin-top: 2px;
+        width: 20px;
+      }
+
+      .form-group.consent-group .consent-label {
+        font-size: 14px;
+        color: #333;
+        line-height: 1.5;
+      }
+
+      .form-group.consent-group .consent-label a {
+        color: #0066cc;
+        text-decoration: underline;
+        font-weight: normal;
+      }
+
+      .form-group.consent-group .consent-label a:hover {
+        color: #0055aa;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Модальное окно регистрации -->
+    <div id="registrationModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-title">Регистрация</div>
+        <form id="registrationForm">
+          <div class="form-group">
+            <label for="phone" class="required-field">Телефон</label>
+            <input type="tel" id="phone" name="phone" required placeholder="+7 (999) 123-45-67" />
+          </div>
+          <div class="form-group">
+            <label for="fullName" class="required-field">ФИО</label>
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              required
+              placeholder="Иванов Иван Иванович" />
+          </div>
+          <div class="form-group">
+            <label for="position" class="required-field">Должность</label>
+            <input type="text" id="position" name="position" required placeholder="Менеджер" />
+          </div>
+          <div class="form-group">
+            <label for="company" class="required-field">Компания</label>
+            <input type="text" id="company" name="company" required placeholder="ООО Ромашка" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="ivanov@example.com" />
+          </div>
+          <div class="form-group consent-group">
+            <input type="checkbox" id="consent" name="consent" required />
+            <label for="consent" class="consent-label required-field">
+              Регистрируясь, Вы соглашаетесь с
+              <a href="https://bg59.ru/personal_data/" target="_blank" rel="noopener noreferrer">
+                обработкой Ваших персональных данных
+              </a>
+              и получением рекламно-информационных материалов.
+            </label>
+          </div>
+          <button type="submit" class="form-submit" id="submitBtn">
+            Зарегистрироваться
+            <img
+              src="https://bg59.online/We/loading_big.gif"
+              class="loading-spinner"
+              id="loadingSpinner" />
+          </button>
+          <div id="registrationError"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Основное содержимое приложения -->
+    <div id="appContent" style="display: none">
+      <div id="name"></div>
+      <form>
+        <div class="button-container">
+          <input type="date" id="id-input" placeholder="Дата создания" />
+          <div class="date-container">
+            <span>→</span>
+          </div>
+          <input type="date" id="id-input2" placeholder="Дата создания" />
+          <input type="text" id="workingtime" placeholder="Кол-во рабочих часов" />
+          <button type="submit" class="button-link" id="deallist">
+            <img src="http://bg59.online/We/deal.png" alt="Иконка 1" />
+            Сделки
+          </button>
+          <button type="button" id="taskButton" class="button-link">
+            <img src="http://bg59.online/We/Task.png" alt="Иконка 2" />
+            Задачи
+          </button>
+          <button type="button" id="responsibleButton" class="button-link">
+            <img src="http://bg59.online/We/Staff.png" alt="Иконка 3" />
+            Занятость по сотрудникам за период
+          </button>
+          <button type="button" id="projectButton" class="button-link">
+            <img src="http://bg59.online/We/projects.png" alt="Иконка 3" />
+            Занятость по проектам
+          </button>
+          <button type="button" id="planning" class="button-link">
+            <img src="http://bg59.online/We/planning-icon.png" alt="Иконка 4" />
+            Распланировать задачи
+          </button>
+          <button type="button" id="exportButton" class="button-link">
+            <img src="http://bg59.online/We/excel.png" alt="Иконка Excel" />
+            Excel
+          </button>
+          <a href="https://bg59.ru/#b4494" target="_blank" class="button-link support-button">
+            <img src="http://bg59.online/We/support.png" alt="Иконка тех.поддержка" />
+            Поддержка
+          </a>
+        </div>
+        <div id="error-message" class="error-message"></div>
+      </form>
+
+      <div id="result">
+        <table id="resultTable">
+          <thead>
+            <tr>
+              <th>Название</th>
+              <th>Сумма</th>
+              <th>Планируемое время</th>
+              <th>Фактическое время</th>
+              <th>Итого</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td><strong>Итого</strong></td>
+              <td id="totalOpportunity"><strong>0</strong></td>
+              <td id="totalPlannedTime"><strong>0</strong></td>
+              <td id="totalActualTime"><strong>0</strong></td>
+              <td id="totalItogo"><strong>0</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div id="loading" style="display: none; text-align: center">
+        <img src="https://bg59.online/We/loading_big.gif" alt="Loading..." />
+      </div>
+    </div>
+
+    <script src="//api.bitrix24.com/api/v1/"></script>
+    <script>
+      (function (w, d, u) {
+        var s = d.createElement('script');
+        s.async = true;
+        s.src = u + '?' + ((Date.now() / 60000) | 0);
+        var h = d.getElementsByTagName('script')[0];
+        h.parentNode.insertBefore(s, h);
+      })(
+        window,
+        document,
+        'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js',
+      );
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // Проверяем, была ли уже пройдена регистрация
+        BX24.init(function () {
+          BX24.callMethod('app.option.get', {}, function (result) {
+            if (result.error()) {
+              console.error('Ошибка при проверке регистрации:', result.error());
+              // В случае ошибки показываем форму регистрации
+              showRegistrationForm();
+            } else {
+              const options = result.data();
+              if (options && options.registrationCompleted) {
+                // Регистрация уже пройдена, показываем основное приложение
+                document.getElementById('appContent').style.display = 'block';
+                initApp();
+              } else {
+                // Регистрация не пройдена, показываем форму
+                showRegistrationForm();
+              }
+            }
+          });
+        });
+
+        // Функция для показа формы регистрации
+        function showRegistrationForm() {
+          document.getElementById('registrationModal').style.display = 'block';
+        }
+
+        document.getElementById('registrationForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+
+          // Новая проверка на пустые значения
+          const phone = document.getElementById('phone').value.trim();
+          const fullName = document.getElementById('fullName').value.trim();
+          const position = document.getElementById('position').value.trim();
+          const company = document.getElementById('company').value.trim();
+          const email = document.getElementById('email').value.trim();
+          const consent = document.getElementById('consent').checked;
+
+          let isValid = true;
+          const errorMessages = [];
+
+          if (!phone) {
+            errorMessages.push("Поле 'Телефон' не может быть пустым");
+            isValid = false;
+          }
+
+          if (!fullName) {
+            errorMessages.push("Поле 'ФИО' не может быть пустым");
+            isValid = false;
+          }
+
+          if (!position) {
+            errorMessages.push("Поле 'Должность' не может быть пустым");
+            isValid = false;
+          }
+
+          if (!company) {
+            errorMessages.push("Поле 'Компания' не может быть пустым");
+            isValid = false;
+          }
+
+          if (!consent) {
+            errorMessages.push('Требуется принять согласие на обработку персональных данных');
+            isValid = false;
+          }
+
+          if (!isValid) {
+            document.getElementById('registrationError').textContent = errorMessages.join('; ');
+            document.getElementById('registrationError').style.display = 'block';
+            return;
+          }
+          // Если все проверки пройдены, продолжаем обработку
+          document.getElementById('loadingSpinner').style.display = 'inline-block';
+          document.getElementById('submitBtn').disabled = true;
+          document.getElementById('registrationError').style.display = 'none';
+
+          // Получаем данные из формы
+          const registrationData = {
+            phone: document.getElementById('phone').value,
+            fullName: document.getElementById('fullName').value,
+            position: document.getElementById('position').value,
+            company: document.getElementById('company').value,
+            email: document.getElementById('email').value,
+            registrationDate: new Date().toLocaleString(),
+          };
+
+          // Формируем COMMENT для Bitrix24
+          const commentText = `Новая регистрация в приложении Учёт времени задач/занятости/трудозатрат сотрудников:
+Дата: ${registrationData.registrationDate}
+ФИО: ${registrationData.fullName}
+Телефон: ${registrationData.phone}
+Должность: ${registrationData.position}
+Компания: ${registrationData.company}
+Email: ${registrationData.email || 'не указан'}`;
+
+          // Отправляем данные в Bitrix24
+          const bitrix24Url =
+            'https://vedernikov.bitrix24.ru/rest/1194/q1710p2nkhuzzo0l/crm.lead.add.json';
+          const params = {
+            fields: {
+              TITLE: `Регистрация: ${registrationData.fullName}`,
+              NAME: registrationData.fullName,
+              PHONE: [{ VALUE: registrationData.phone, VALUE_TYPE: 'WORK' }],
+              COMPANY_TITLE: registrationData.company,
+              POST: registrationData.position,
+              EMAIL: registrationData.email
+                ? [{ VALUE: registrationData.email, VALUE_TYPE: 'WORK' }]
+                : [],
+              SOURCE_ID: 'SELF',
+              COMMENTS: commentText,
+            },
+          };
+
+          // Отправляем запрос к Bitrix24 API
+          fetch(bitrix24Url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.error) {
+                console.error('Ошибка при отправке данных в Bitrix24:', data.error);
+                showRegistrationError(
+                  'Ошибка при отправке данных. Пожалуйста, попробуйте еще раз.',
+                );
+              } else {
+                // Сохраняем данные регистрации в настройках приложения
+                BX24.callMethod(
+                  'app.option.set',
+                  {
+                    options: {
+                      registrationData: registrationData,
+                      registrationCompleted: true,
+                    },
+                  },
+                  function (result) {
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
+
+                    if (result.error()) {
+                      console.error('Ошибка при сохранении данных регистрации:', result.error());
+                      showRegistrationError(
+                        'Ошибка при сохранении данных. Пожалуйста, попробуйте еще раз.',
+                      );
+                    } else {
+                      // Скрываем форму регистрации и показываем основное приложение
+                      document.getElementById('registrationModal').style.display = 'none';
+                      document.getElementById('appContent').style.display = 'block';
+                      initApp();
+                    }
+                  },
+                );
+              }
+            })
+            .catch((error) => {
+              console.error('Ошибка при отправке данных:', error);
+              showRegistrationError('Ошибка при отправке данных. Пожалуйста, попробуйте еще раз.');
+            });
+
+          function showRegistrationError(message) {
+            document.getElementById('registrationError').textContent = message;
+            document.getElementById('registrationError').style.display = 'block';
+            document.getElementById('loadingSpinner').style.display = 'none';
+            document.getElementById('submitBtn').disabled = false;
+          }
+        });
+
+        // Функция инициализации основного приложения
+        function initApp() {
+          var WorkingTimeValue = document.getElementById('workingtime');
+          var inputDate = document.getElementById('id-input');
+          var inputDate2 = document.getElementById('id-input2');
+
+          // Подставляем сохраненное значение WorkingTimeValue при загрузке страницы
+          BX24.callMethod('app.option.get', {}, function (result) {
+            if (result.error()) {
+              console.error('Ошибка при восстановлении значения:', result.error());
+            } else {
+              const options = result.data();
+              if (options.workingTime) {
+                WorkingTimeValue.value = options.workingTime;
+              }
+            }
+          });
+
+          // Подставляем сохраненные значения дат при загрузке страницы
+          if (localStorage.getItem('inputDate')) {
+            inputDate.value = localStorage.getItem('inputDate');
+          }
+          if (localStorage.getItem('inputDate2')) {
+            inputDate2.value = localStorage.getItem('inputDate2');
+          }
+
+          WorkingTimeValue.addEventListener('input', function () {
+            BX24.callMethod(
+              'app.option.set',
+              { options: { workingTime: WorkingTimeValue.value } },
+              function (result) {
+                if (result.error()) {
+                  console.error('Ошибка при сохранении значения:', result.error());
+                } else {
+                  console.log('Значение успешно сохранено');
+                }
+              },
+            );
+          });
+
+          // Сохраняем значения дат при изменении
+          inputDate.addEventListener('input', function () {
+            localStorage.setItem('inputDate', inputDate.value);
+          });
+          inputDate2.addEventListener('input', function () {
+            localStorage.setItem('inputDate2', inputDate2.value);
+          });
+
+          // Остальной ваш код
+          var form = document.querySelector('form');
+          var taskButton = document.getElementById('taskButton');
+          var dealbutton = document.getElementById('deallist');
+          var tbody = document.querySelector('#resultTable tbody');
+          var totalOpportunityElem = document.getElementById('totalOpportunity');
+          var totalPlannedTimeElem = document.getElementById('totalPlannedTime');
+          var totalActualTimeElem = document.getElementById('totalActualTime');
+          var totalItogoElem = document.getElementById('totalItogo');
+          var errorMessageElem = document.getElementById('error-message');
+
+          // Функция для форматирования даты
+          function formatDate(dateString) {
+            var parts = dateString.split('-');
+            return parts[2] + '.' + parts[1] + '.' + parts[0];
+          }
+
+          // Функция для получения задач по сделке
+          function getTasksByDeal(dealId) {
+            return new Promise((resolve, reject) => {
+              BX24.callMethod(
+                'tasks.task.list',
+                {
+                  filter: { UF_CRM_TASK: 'D_' + dealId },
+                  select: ['ID', 'TIME_ESTIMATE', 'TIME_SPENT_IN_LOGS'],
+                },
+                function (taskResult) {
+                  if (taskResult.error()) {
+                    reject(taskResult.error());
+                  } else {
+                    console.log(`Tasks for deal ${dealId}:`, taskResult.data());
+                    resolve(taskResult.data());
+                  }
+                },
+              );
+            });
+          }
+
+          if (!document.querySelector('.instruction')) {
+            // Добавляем инструкцию по приложению
+            var instructionElem = document.createElement('div');
+            instructionElem.className = 'instruction';
+            instructionElem.innerHTML = `
+                        <h2>Инструкция по использованию приложения</h2>
+                        <p><b>Обращаем внимание, что время будет учитываться только когда задача ставится на паузу, а в отчёте она появится, когда изменится статус задачи(Ждёт выполнения, В работе и т.д).</p>
+                        <p style="color: red;">Если вам нужно иначе просчитывать время задач, напишите нам, мы можем продемонстрировать готовое решение по подсчёту времени в задачах и внедрить его вам!!! </b></p>
+                        <p>Укажите в пустом поле рабочее время сотрудников(Например: 8).</p>
+                        <p>На каждую задачу и сделку можно нажать, чтобы перейти к более детальному анализу.</p>
+                        <p>1. Выберите период с которого будут отображаться задачи.</p>
+                        <p>2. Нажмите на кнопку "Сделки" для отображения сделок. Чтобы посмотреть задачи по ним, нужно нажать на любую сделку из таблицы.</p>
+                        <p>3. Нажмите на кнопку "Задачи" для отображения всех задач за период.</p>
+                        <p>4. Нажмите на кнопку "Занятость по сотрудникам за период" для отображения занятости по сотрудникам за период. Если у задач не шло время, то отображаться они не будут.</p>
+                        <p>5. Нажмите на кнопку "Excel" для экспорта данных в файл Excel.</p>
+                        <p>6. Нажмите на занятость по проектам, если вам необходимо увидеть занятость по проектам.</p>
+                        <p>7. Инструкция по управлению проектами находится во вкладке занятость по проектам.</p>
+                        <p><span style="color: yellow;"><b>Желтый</b></span> - задачи и сделки у которых не указано Планируемое время.</p>
+                        <p><span style="color: blue;"><b>Синий</b></span> - задачи и сделки, которые находятся в процессе выполнения.</p>
+                        <p><span style="color: green;"><b>Зелёный</b></span> - Завершённые задачи и сделки.</p>
+                        <p><span style="color: red;"><b>Красный</b></span> - Задачи и сделки с переработкой по времени.</p>
+                    `;
+            document.body.appendChild(instructionElem);
+          }
+
+          // Функция для генерации таблицы сделок
+          async function generateDealsTable() {
+            tbody.innerHTML = '';
+            errorMessageElem.textContent = ''; // Очистка сообщения об ошибке
+            var orderdays = inputDate.value ? formatDate(inputDate.value) : null;
+            var orderdays2 = inputDate2.value ? formatDate(inputDate2.value) : null;
+
+            if (!orderdays && !orderdays2) {
+              errorMessageElem.textContent = 'Пожалуйста, выберите хотя бы одну дату.';
+              return;
+            }
+
+            BX24.callMethod(
+              'crm.deal.list',
+              {
+                order: { STAGE_ID: 'ASC' },
+                filter: { '>DATE_CREATE': orderdays, '<=DATE_CREATE': orderdays2 },
+                select: ['TITLE', 'OPPORTUNITY', 'ID', 'STAGE_ID'],
+              },
+              async function (result) {
+                if (result.error()) console.error(result.error());
+                else {
+                  var totalOpportunity = 0;
+                  var totalPlannedTime = 0;
+                  var totalActualTime = 0;
+                  var totalItogo = 0;
+
+                  for (const item of result.data()) {
+                    var plannedTime = 0;
+                    var actualTime = 0;
+
+                    try {
+                      var tasks = await getTasksByDeal(item.ID);
+                      console.log(`Tasks for deal ${item.ID}:`, tasks); // Отладочное сообщение
+                      if (tasks && tasks.tasks) {
+                        tasks.tasks.forEach(function (task) {
+                          console.log(
+                            `Task ID: ${task.id}, TIME_ESTIMATE: ${task.timeEstimate}, TIME_SPENT_IN_LOGS: ${task.timeSpentInLogs}`,
+                          ); // Отладочное сообщение
+                          plannedTime += parseInt(task.timeEstimate) || 0;
+                          actualTime += parseInt(task.timeSpentInLogs) || 0;
+                        });
+                      }
+
+                      console.log(
+                        `Deal ID: ${item.ID}, Planned Time: ${plannedTime}, Actual Time: ${actualTime}`,
+                      ); // Отладочное сообщение
+
+                      var itogo = actualTime - plannedTime;
+                      var row = document.createElement('tr');
+                      if (itogo > 0.001) {
+                        row.classList.add('overdue');
+                      } else {
+                        if (item.STAGE_ID == 'WON') {
+                          row.classList.add('overdue3');
+                        }
+                        if (plannedTime === 0) {
+                          row.classList.add('overdue4');
+                        } else {
+                          row.classList.add('overdue2');
+                        }
+                      }
+                      row.innerHTML =
+                        '<td>' +
+                        item.TITLE +
+                        '</td>' +
+                        '<td>' +
+                        item.OPPORTUNITY +
+                        '</td>' +
+                        '<td>' +
+                        (plannedTime / 3600).toFixed(2) +
+                        ' ч.' +
+                        '</td>' +
+                        '<td>' +
+                        (actualTime / 3600).toFixed(2) +
+                        ' ч.' +
+                        '</td>' +
+                        '<td>' +
+                        (itogo / 3600).toFixed(2) +
+                        ' ч.' +
+                        '</td>';
+                      row.addEventListener('click', function () {
+                        window.location.href = 'page2.html?ID=' + item.ID;
+                      });
+                      tbody.appendChild(row);
+
+                      // Суммируем значения
+                      totalOpportunity += parseFloat(item.OPPORTUNITY) || 0;
+                      totalPlannedTime += plannedTime;
+                      totalActualTime += actualTime;
+                      totalItogo += itogo;
+
+                      // Обновляем значения в строке "Итого" после завершения всех итераций
+                      totalOpportunityElem.innerHTML =
+                        '<strong>' + totalOpportunity.toFixed(2) + '</strong>';
+                      totalPlannedTimeElem.innerHTML =
+                        '<strong>' + (totalPlannedTime / 3600).toFixed(2) + '</strong>';
+                      totalActualTimeElem.innerHTML =
+                        '<strong>' + (totalActualTime / 3600).toFixed(2) + '</strong>';
+                      totalItogoElem.innerHTML =
+                        '<strong>' + (totalItogo / 3600).toFixed(2) + '</strong>';
+                    } catch (error) {
+                      console.error(error);
+                    }
+                  }
+
+                  if (result.more()) result.next();
+                }
+              },
+            );
+          }
+
+          // Функция для выгрузки данных в Excel
+          function exportTableToExcel(tableID, filename = '') {
+            var downloadLink;
+            var dataType = 'application/vnd.ms-excel';
+            var tableSelect = document.getElementById(tableID);
+            var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+
+            // Устанавливаем имя файла
+            filename = filename ? filename + '.xls' : 'excel_data.xls';
+
+            // Создаем ссылку для скачивания
+            downloadLink = document.createElement('a');
+
+            document.body.appendChild(downloadLink);
+
+            if (navigator.msSaveOrOpenBlob) {
+              var blob = new Blob(['\ufeff', tableHTML], {
+                type: dataType,
+              });
+              navigator.msSaveOrOpenBlob(blob, filename);
+            } else {
+              // Создаем ссылку на файл
+              downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+
+              // Устанавливаем имя файла
+              downloadLink.download = filename;
+
+              // Инициируем скачивание
+              downloadLink.click();
+            }
+          }
+
+          document.getElementById('exportButton').addEventListener('click', function () {
+            exportTableToExcel('resultTable', 'data');
+          });
+
+          dealbutton.addEventListener('click', function (e) {
+            console.log('dsadasd');
+            e.preventDefault();
+            generateDealsTable();
+          });
+
+          taskButton.addEventListener('click', function (e) {
+            console.log('dsadasssssdssafasasfdd');
+            e.preventDefault();
+            generateTasksTable();
+          });
+
+          document.getElementById('taskButton').addEventListener('click', function () {
+            if (inputDate.value || inputDate2.value) {
+              var orderdays = inputDate.value
+                ? formatDate(inputDate.value)
+                : 'undefined.undefined.';
+              var orderdays2 = inputDate2.value
+                ? formatDate(inputDate2.value)
+                : 'undefined.undefined.';
+              window.location.href =
+                'page4.html?CD=' +
+                orderdays +
+                '&CD2=' +
+                orderdays2 +
+                '&WT=' +
+                WorkingTimeValue.value;
+            } else {
+              alert('Не указана дата! Укажите хотя бы одну дату.');
+            }
+          });
+
+          document.getElementById('responsibleButton').addEventListener('click', function () {
+            if (inputDate.value || inputDate2.value) {
+              var orderdays = inputDate.value
+                ? formatDate(inputDate.value)
+                : 'undefined.undefined.';
+              var orderdays2 = inputDate2.value
+                ? formatDate(inputDate2.value)
+                : 'undefined.undefined.';
+              window.location.href =
+                'page5.html?CD=' +
+                orderdays +
+                '&CD2=' +
+                orderdays2 +
+                '&WT=' +
+                WorkingTimeValue.value;
+            } else {
+              alert('Не указана дата! Укажите хотя бы одну дату.');
+            }
+          });
+
+          document.getElementById('projectButton').addEventListener('click', function () {
+            if (inputDate.value || inputDate2.value) {
+              var orderdays = inputDate.value
+                ? formatDate(inputDate.value)
+                : 'undefined.undefined.';
+              var orderdays2 = inputDate2.value
+                ? formatDate(inputDate2.value)
+                : 'undefined.undefined.';
+              window.location.href =
+                '../project_analytics/index.php?CD=' +
+                orderdays +
+                '&CD2=' +
+                orderdays2 +
+                '&WT=' +
+                WorkingTimeValue.value +
+                '&ShowButton=1';
+            } else {
+              alert('Не указана дата! Укажите хотя бы одну дату.');
+            }
+          });
+
+          document.getElementById('planning').addEventListener('click', function () {
+            if (inputDate.value || inputDate2.value) {
+              var orderdays = inputDate.value
+                ? formatDate(inputDate.value)
+                : 'undefined.undefined.';
+              var orderdays2 = inputDate2.value
+                ? formatDate(inputDate2.value)
+                : 'undefined.undefined.';
+              window.location.href = 'page7.html?WT=' + WorkingTimeValue.value;
+            } else {
+              alert('Не указана дата! Укажите хотя бы одну дату.');
+            }
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

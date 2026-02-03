@@ -9,7 +9,7 @@ export class Project {
 
   getTimeSpentHours(startDate = null, endDate = null) {
     const cacheKey = `time_spent_${startDate}_${endDate}`;
-    
+
     if (this._calculationCache.has(cacheKey)) {
       return this._calculationCache.get(cacheKey);
     }
@@ -17,20 +17,22 @@ export class Project {
     const result = this.tasks
       .filter(task => task.isInDateRange(startDate, endDate))
       .reduce((sum, task) => sum + task.getTimeSpentHours(startDate, endDate), 0);
-    
+
     this._calculationCache.set(cacheKey, result);
     return result;
   }
 
   toTableRows(startDate, endDate) {
     const cacheKey = `table_rows_${startDate}_${endDate}`;
-    
+
     if (this._calculationCache.has(cacheKey)) {
       return this._calculationCache.get(cacheKey);
     }
 
-    const result = this.tasks
-      .filter(task => task.isInDateRange(startDate, endDate))
+    const resultTasks = (startDate && endDate) ? this.tasks
+      .filter(task => task.isInDateRange(startDate, endDate)) : this.tasks;
+      
+    const result = resultTasks
       .map(task => {
         const taskRow = task.toTableRow(startDate, endDate);
         return {

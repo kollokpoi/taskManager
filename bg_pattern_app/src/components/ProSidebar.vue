@@ -108,7 +108,7 @@ const selectUtilityItem = (util) => {
   justify-content: center;
   align-items: center;
   border-radius: 50%;
-  transition: .45s;
+  transition: .25s;
 }
 .item.active .item-icon-holder, .item:hover .item-icon-holder{
     background-color: #2c2933;

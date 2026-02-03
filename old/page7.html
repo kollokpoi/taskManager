@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="//api.bitrix24.com/api/v1/"></script>
+    <style>
+                /* Стили для popup окна */
+                .popup {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+        }
+        .popup-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+            width: 100px; /* Устанавливаем фиксированную ширину для всех ячеек */
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        select {
+            width: 100%;
+        }
+        #loading {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        .blocked {
+            background-color: #ffcccc;
+            pointer-events: none; /* Делаем ячейки некликабельными */
+        }
+        .selected {
+            background-color: #72f387;
+        }
+        .free {
+            background-color: #72caf3;
+        }
+        .task-select {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background-color: white;
+            border: 1px solid black;
+            padding: 10px;
+        }
+        .hovered {
+            outline: 2px solid #000; /* Добавляем обводку при наведении */
+        }
+        .date-navigation {
+    width: 50px; /* Ширина изображения */
+    height: 50px; /* Высота изображения */
+    cursor: pointer; /* Курсор в виде указателя при наведении */
+    transition: transform 0.2s ease; /* Плавный переход для эффекта при наведении */
+    position: relative; /* Относительное позиционирование для смещения */
+    top: 15px; /* Смещение вниз при наведении */
+}
+
+.date-navigation:hover {
+    transform: scale(1.1); /* Увеличение размера при наведении */
+}
+
+.date-navigation:active {
+    transform: scale(0.9); /* Уменьшение размера при нажатии */
+}
+        input[type="date"] {
+            background-color: #f2f2f2; /* Светло-серый фон */
+            border: 2px solid black;
+            color: #333; /* Темно-серый текст */
+            font-size: 12px; /* Размер шрифта */
+            border-radius: 5px; /* Скругленные углы */
+            font-weight: bold; /* Жирный шрифт */
+            display: inline-flex; /* Используем flexbox для выравнивания */
+            height: 32px; /* Устанавливаем фиксированную высоту */
+            box-sizing: border-box; /* Включаем границы и отступы в общую высоту */
+            position: relative; /* Относительное позиционирование */
+            top: -7px; /* Поднятие вверх */
+        }
+        input[type="date"]::placeholder {
+            color: #3b7981; /* Цвет текста плейсхолдера */
+            font-weight: normal; /* Обычный шрифт для плейсхолдера */
+        }
+        input[type="date"]:focus {
+            border-color: #61b8f1; /* Голубая граница при фокусе */
+            outline: none; /* Убираем стандартное выделение */
+            box-shadow: 0 0 5px rgba(76, 175, 175, 0.5); /* Тень при фокусе */
+        }
+        .button-link {
+            background-color: #72caf3; /* Голубой фон */
+            border: 2px solid black;
+            color: rgb(0, 0, 0); /* Черный текст */
+            padding: 10px 20px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-flex; /* Используем flexbox для выравнивания */
+            align-items: center; /* Выравнивание по центру по вертикали */
+            font-size: 14px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        .button-link:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+        .button-link img {
+            margin-right: 8px; /* Отступ справа от иконки */
+            width: 22px; /* Ширина иконки */
+            height: 22px; /* Высота иконки */
+        }
+        .support-button {
+            background-color: #6ceca1; /* Зеленый фон */
+        }
+        .support-button:hover {
+            background-color: #45a049; /* Темно-зеленый фон при наведении */
+        }
+        .support-button img {
+            width: 18px; /* Ширина иконки */
+            height: auto; /* Автоматическая высота для сохранения пропорций */
+        }
+    .instruction {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        .instruction-button {
+            background-color: #6cecd0; /* Зеленый фон */
+        }
+        .instruction-button:hover {
+            background-color: #324933; /* Темно-зеленый фон при наведении */
+        }
+        .smallbutton {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 5px; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        .smallbutton:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <img src="https://bg59.online/We/loading_big.gif" alt="Loading...">
+    </div>
+    <button id="backButton" class="button-link"> <img src="http://bg59.online/We/back-arrow.png" alt="Иконка Назад">Назад</button>
+    <button id="saveAllButton" onclick="saveAllTasks()" class="button-link"> <img src="http://bg59.online/We/save.png" alt="Иконка Сохранения">Сохранить все задачи</button>
+    <button type="button" id="exportButton" class="button-link">
+        <img src="http://bg59.online/We/excel.png" alt="Иконка Excel">
+        Excel
+    </button>
+    <button type="button" onclick="showInstruction()" class="button-link instruction-button">
+        <img src="http://bg59.online/We/inst.png" alt="Иконка Excel">
+        Инструкция</button>
+        <a href="https://bg59.ru/#b4494" target="_blank" class="button-link support-button">
+            <img src="http://bg59.online/We/support.png" alt="Иконка тех.поддержка">
+            Поддержка
+        </a>
+            <img src="https://bg59.online/We/arrow-left.png" alt="Предыдущий день" onclick="changeDate(-1)" class="date-navigation">
+            <input type="date" id="taskDate" name="dateFrom">
+            <img src="https://bg59.online/We/arrow-right.png" alt="Следующий день" onclick="changeDate(1)" class="date-navigation">
+
+    <table id="tasksTable">
+        <thead>
+            <tr>
+                <th>Время(часы)</th>
+                <!-- Заголовки для сотрудников будут добавлены динамически -->
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>Итого распланировано</th>
+                <!-- Итоговые значения для сотрудников будут добавлены динамически -->
+            </tr>
+            <tr>
+                <th>Израсходовано фактически</th>
+                <!-- Фактические значения для сотрудников будут добавлены динамически -->
+            </tr>
+        </tfoot>
+    </table>
+    <div id="taskSelectContainer" class="task-select">
+        <div id="taskSelect"></div>
+        <button onclick="saveTaskSelection()"class="smallbutton">Сохранить</button>
+        <button onclick="openTaskCreationForm()"class="smallbutton">Создать задачу</button>
+        <button onclick="closeTaskSelect()" class="smallbutton">Отмена</button>
+
+        <div id="taskCreationForm" style="display:none;">
+            <label for="taskTitle">Название задачи:</label>
+            <input type="text" id="taskTitle"><br>
+            <label for="taskDescription">Описание задачи:</label>
+            <textarea id="taskDescription"></textarea><br>
+            <label for="taskPlannedTime">Общее планируемое время (часы):</label>
+            <input type="number" id="taskPlannedTime" step="0.1"><br>
+            <button onclick="createTask()" class="smallbutton">Создать</button>
+            <button onclick="closeTaskCreationForm()" class="smallbutton">Отмена</button>
+        </div>
+    </div>
+
+    <div id="instructionPopup" class="popup">
+        <div class="popup-content">
+            <span class="close" onclick="closeInstruction()">&times;</span>
+            <h2>Инструкция</h2>
+            <p>1 - Нажмите на любую ячейку любого сотрудника и выберите задачу, затем нажмите сохранить.</p>
+            <p>2 - Функционал позволяет создавать задачи прямиком из свободных ячеек. Для того, чтобы создать задачу, необходимо нажать на свободную ячейку и нажать на кнопку: «Создать задачу», и заполнить все поля.</p>
+            <p>3 - Нажмите «Сохранить все задачи», чтобы сотрудники увидели в специальном поле в задачах выделенное им время на сегодня.</p>
+            <p>Нажимайте на стрелочки, чтобы быстро переключать даты и планировать на следующие дни.</p>
+            <p>4 - Нажмите на кнопку "Excel" для экспорта данных в файл Excel.</p>
+            <p>Логика данного приложения состоит в том, чтобы занять выделенное время задачами.</p>
+            <p>В конце есть строки «Итого распланировано времени» и «Израсходовано фактически».</p>
+            <p>«Итого распланировано времени» - Сумма выделенного времени на задачи.</p>
+            <p>«Израсходовано фактически» - Фактически затраченное время сотрудником на задачу. Данная строка будет правильно работать если по задачам ведётся учёт времени.</p>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script>
+        (function(w,d,u){
+                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+        })(window,document,'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js');
+</script>
+    <script>
+const employeeWorkload = {};
+const employeeActualWorkload = {};
+const workingTimeLimit = parseFloat(new URLSearchParams(window.location.search).get('WT')) || 9;
+let currentCell = null;
+let customFieldId = null;
+document.addEventListener('DOMContentLoaded', (event) => {
+            const taskDateInput = document.getElementById('taskDate');
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+            const day = String(today.getDate()).padStart(2, '0');
+            const todayString = `${year}-${month}-${day}`;
+
+            taskDateInput.value = todayString;
+        });
+
+
+        function changeDate(days) {
+    const dateInput = document.getElementById('taskDate');
+    const currentDate = new Date(dateInput.value);
+
+    if (isNaN(currentDate)) {
+        console.error('Некорректная дата');
+        return;
+    }
+
+    currentDate.setDate(currentDate.getDate() + days);
+    const newDate = currentDate.toISOString().split('T')[0];
+    dateInput.value = newDate;
+
+    restoreCheckboxStateFromBitrix(newDate);
+}       
+function openTaskCreationForm() {
+    document.getElementById('taskCreationForm').style.display = 'block';
+}
+    // Функция для показа popup окна
+    function showInstruction() {
+        document.getElementById("instructionPopup").style.display = "block";
+    }
+
+    // Функция для закрытия popup окна
+    function closeInstruction() {
+        document.getElementById("instructionPopup").style.display = "none";
+    }
+
+    // Закрытие окна при клике вне его
+    window.onclick = function(event) {
+        var popup = document.getElementById("instructionPopup");
+        if (event.target == popup) {
+            popup.style.display = "none";
+        }
+    }
+
+function closeTaskCreationForm() {
+    document.getElementById('taskCreationForm').style.display = 'none';
+}
+
+async function createTask() {
+    const title = document.getElementById('taskTitle').value;
+    const description = document.getElementById('taskDescription').value;
+    const plannedTime = parseFloat(document.getElementById('taskPlannedTime').value);
+
+    if (!title || !description || isNaN(plannedTime)) {
+        alert('Пожалуйста, заполните все поля.');
+        return;
+    }
+
+    if (!currentCell) {
+        alert('Пожалуйста, выберите ячейку в таблице.');
+        return;
+    }
+
+    const userId = currentCell.dataset.userId;
+
+    try {
+        const result = await new Promise((resolve, reject) => {
+            BX24.callMethod(
+                'tasks.task.add',
+                {
+                    fields: {
+                        TITLE: title,
+                        DESCRIPTION: description,
+                        TIME_ESTIMATE: plannedTime * 3600,
+                        RESPONSIBLE_ID: userId
+                    }
+                },
+                function(result) {
+                    if (result.error()) {
+                        reject(result.error());
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+        });
+
+        alert('Задача успешно создана');
+        closeTaskCreationForm();
+
+        const tasks = await fetchTasksForUser(userId);
+        tasksByUser[userId] = tasks;
+        updateCellTasks(currentCell, tasks);
+        reloadTaskSelectContainer(userId);
+
+    } catch (error) {
+        logError('Ошибка при создании задачи', error);
+    }
+}
+function updateCellTasks(cell, tasks) {
+    const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+    const selectedTaskTitles = selectedTasks.map(taskId => {
+        const task = tasks.find(task => task.id === taskId);
+        return task ? task.title : '';
+    }).filter(title => title !== '');
+    cell.textContent = selectedTaskTitles.join(', ');
+
+    const userId = cell.dataset.userId;
+    employeeWorkload[userId] = calculateTotalWorkload(userId);
+    updateTable(userId);
+    updateActualWorkload(userId);
+}
+function reloadTaskSelectContainer(userId) {
+    const taskSelect = document.getElementById('taskSelect');
+    const tasks = tasksByUser[userId] || [];
+    logInfo('Перезагрузка taskSelectContainer с задачами', tasks);
+    populateTaskOptions(tasks, taskSelect);
+
+    const selectedTasks = currentCell.dataset.selectedTasks ? currentCell.dataset.selectedTasks.split(',') : [];
+    Array.from(taskSelect.querySelectorAll('input[type="checkbox"]')).forEach(checkbox => {
+        checkbox.checked = selectedTasks.includes(checkbox.value);
+    });
+
+    const taskSelectContainer = document.getElementById('taskSelectContainer');
+    taskSelectContainer.style.display = 'block';
+}
+async function fetchTasksForUser(userId) {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                'filter': {'RESPONSIBLE_ID': userId, "!STATUS": [4, 5]},
+                'select': ['ID', 'TITLE']
+            },
+            function(result) {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    const tasks = result.data().tasks || result.data();
+                    logInfo('Получены задачи для пользователя', { userId, tasks });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        resolve(tasks);
+                    }
+                }
+            }
+        );
+    });
+}
+
+function exportTableToExcel(tasksTable, filename = '') {
+    var tableSelect = document.getElementById(tasksTable);
+
+    // Проверяем наличие таблицы и количество строк
+    if (!tableSelect || tableSelect.rows.length <= 1) {
+        alert('Таблица не найдена или в ней недостаточно данных для экспорта.');
+        return;
+    }
+
+    var wb = XLSX.utils.table_to_book(tableSelect, { sheet: "Sheet1" });
+    var ws = wb.Sheets["Sheet1"];
+
+    // Устанавливаем перенос строк и автоширину для всех ячеек
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    for (var R = range.s.r; R <= range.e.r; ++R) {
+        for (var C = range.s.c; C <= range.e.c; ++C) {
+            var cell_address = { c: C, r: R };
+            var cell_ref = XLSX.utils.encode_cell(cell_address);
+            if (!ws[cell_ref]) continue;
+
+            // Устанавливаем перенос строк
+            ws[cell_ref].s = {
+                alignment: {
+                    wrapText: true,
+                    vertical: "top"
+                }
+            };
+        }
+    }
+
+    // Устанавливаем автоширину для всех колонок
+    var colWidths = [];
+    for (var C = range.s.c; C <= range.e.c; ++C) {
+        var maxWidth = 10;
+        for (var R = range.s.r; R <= range.e.r; ++R) {
+            var cell_address = { c: C, r: R };
+            var cell_ref = XLSX.utils.encode_cell(cell_address);
+            if (!ws[cell_ref]) continue;
+
+            var cellValue = ws[cell_ref].v;
+            if (cellValue) {
+                var cellWidth = cellValue.toString().length;
+                if (cellWidth > maxWidth) {
+                    maxWidth = cellWidth;
+                }
+            }
+        }
+        colWidths.push({ wch: maxWidth });
+    }
+    ws['!cols'] = colWidths;
+
+    filename = filename ? filename + '.xlsx' : 'excel_data.xlsx';
+    XLSX.writeFile(wb, filename);
+}
+
+document.getElementById('exportButton').addEventListener('click', function() {
+    exportTableToExcel('tasksTable', 'data');
+});
+
+
+
+function logError(message, error) {
+    console.error(message, error);
+    alert(message + ": " + JSON.stringify(error, Object.getOwnPropertyNames(error)));
+}
+
+function logInfo(message, data) {
+    //console.log(message, data);
+}
+
+function showLoading() {
+    document.getElementById('loading').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+}
+
+function addRowToTable(time, employees, tasksByUser) {
+    const tableBody = document.querySelector("#tasksTable tbody");
+    const row = document.createElement("tr");
+
+    const timeCell = document.createElement("td");
+    timeCell.textContent = time;
+    row.appendChild(timeCell);
+
+    employees.forEach(employee => {
+        const cell = document.createElement("td");
+        cell.classList.add('free');
+        cell.dataset.userId = employee.ID;
+        cell.dataset.time = time;
+        cell.textContent = "Можно поставить задачу";
+        cell.addEventListener('click', handleCellClick);
+        cell.addEventListener('mouseover', handleCellMouseOver);
+        cell.addEventListener('mouseout', handleCellMouseOut);
+        row.appendChild(cell);
+    });
+
+    tableBody.appendChild(row);
+}
+
+function populateTable(employees, workingtime, tasksByUser) {
+    const tableHead = document.querySelector("#tasksTable thead tr");
+    const tableFoot = document.querySelector("#tasksTable tfoot");
+
+    if (!tableHead || !tableFoot) {
+        console.error('Элементы thead или tfoot не найдены в таблице');
+        return;
+    }
+
+    // Очищаем содержимое строк в thead, кроме первой строки заголовка
+    tableHead.innerHTML = '<th>Время</th>';
+
+    // Очищаем содержимое строк в tfoot, но оставляем заголовки
+    const totalRow = tableFoot.querySelector("tr:nth-child(1)");
+    const actualRow = tableFoot.querySelector("tr:nth-child(2)");
+    totalRow.innerHTML = '<th>Итого</th>';
+    actualRow.innerHTML = '<th>Израсходовано фактически</th>';
+
+    employees.forEach(employee => {
+        const th = document.createElement("th");
+        th.textContent = `${employee.NAME} ${employee.LAST_NAME}`;
+        tableHead.appendChild(th);
+
+        const tfTotal = document.createElement("td");
+        tfTotal.dataset.userId = employee.ID;
+        tfTotal.textContent = "0 ч.";
+        tableFoot.querySelector("tr:nth-child(1)").appendChild(tfTotal);
+
+        const tfActual = document.createElement("td");
+        tfActual.dataset.userId = employee.ID;
+        tfActual.textContent = "0 ч.";
+        tableFoot.querySelector("tr:nth-child(2)").appendChild(tfActual);
+
+        employeeWorkload[employee.ID] = 0;
+        employeeActualWorkload[employee.ID] = 0;
+    });
+
+    for (let i = 1; i <= workingtime; i++) {
+        addRowToTable(`${i}`, employees, tasksByUser);
+    }
+
+    const today = document.getElementById('taskDate');
+    const targetDate = dateInput.value; // Укажите нужную дату
+    
+    restoreCheckboxStateFromBitrix(targetDate).then(() => {
+        console.log('Состояние чекбоксов восстановлено');
+        updateAllCells();
+    }).catch(error => {
+        console.error('Ошибка при восстановлении состояния чекбоксов', error);
+    });
+}
+
+function fetchTasksForAllUsers(users, callback) {
+    const tasksByUser = {};
+    let remainingUsers = users.length;
+
+    users.forEach(user => {
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                'filter': {'RESPONSIBLE_ID': user.ID, "!STATUS": [4, 5]},
+                'select': ['ID', 'TITLE']
+            },
+            function(result) {
+                if (result.error()) {
+                    logError('Ошибка API', result.error());
+                } else {
+                    tasksByUser[user.ID] = result.data().tasks || [];
+                    logInfo('Получены задачи для пользователя', { userId: user.ID, tasks: tasksByUser[user.ID] });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        remainingUsers--;
+                        if (remainingUsers === 0) {
+                            callback(tasksByUser);
+                        }
+                    }
+                }
+            }
+        );
+    });
+}
+
+function populateTaskOptions(tasks, containerElement) {
+    containerElement.innerHTML = '';
+    if (!Array.isArray(tasks)) {
+        logError('Задачи не являются массивом', tasks);
+        return;
+    }
+    tasks.forEach(task => {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = task.id;
+        checkbox.id = `task_${task.id}`;
+        checkbox.textContent = task.title;
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(task.title));
+        containerElement.appendChild(label);
+        containerElement.appendChild(document.createElement("br"));
+    });
+    logInfo('Опции задач', tasks);
+}
+
+function handleCellClick(event) {
+    if (event.target.classList.contains('blocked')) {
+        return;
+    }
+
+    currentCell = event.target;
+    const userId = currentCell.dataset.userId;
+    const time = currentCell.dataset.time;
+    const tasks = tasksByUser[userId] || [];
+
+    const taskSelect = document.getElementById('taskSelect');
+    populateTaskOptions(tasks, taskSelect);
+
+    const selectedTasks = currentCell.dataset.selectedTasks ? currentCell.dataset.selectedTasks.split(',') : [];
+    Array.from(taskSelect.querySelectorAll('input[type="checkbox"]')).forEach(checkbox => {
+        checkbox.checked = selectedTasks.includes(checkbox.value);
+    });
+
+    const taskSelectContainer = document.getElementById('taskSelectContainer');
+    taskSelectContainer.style.display = 'block';
+    taskSelectContainer.style.left = `${event.pageX}px`;
+    taskSelectContainer.style.top = `${event.pageY}px`;
+
+    logInfo('Выбранные задачи для ячейки', { userId, time, selectedTasks });
+}
+function handleCellMouseOver(event) {
+    event.target.classList.add('hovered');
+}
+
+function handleCellMouseOut(event) {
+    event.target.classList.remove('hovered');
+}
+
+function saveTaskSelection() {
+    const taskSelect = document.getElementById('taskSelect');
+    const selectedCheckboxes = Array.from(taskSelect.querySelectorAll('input[type="checkbox"]:checked'));
+    const selectedTasks = selectedCheckboxes.map(checkbox => checkbox.value);
+    const selectedTaskTitles = selectedCheckboxes.map(checkbox => checkbox.nextSibling.textContent);
+
+    const userId = currentCell.dataset.userId;
+    const time = parseFloat(currentCell.dataset.time) || 0;
+
+    const currentTotalWorkload = calculateTotalWorkload(userId, currentCell);
+
+    const totalSelectedTime = time * selectedTasks.length;
+
+    if (currentTotalWorkload + totalSelectedTime > workingTimeLimit) {
+        alert('Выбранное количество задач превышает доступное время.');
+        return;
+    }
+
+    // Получаем значение выбранной даты
+    const taskDateInput = document.getElementById('taskDate');
+    const selectedDate = taskDateInput.value;
+
+    // Добавляем выбранную дату в dataset ячейки
+    currentCell.dataset.selectedTasks = selectedTasks.join(',');
+    currentCell.dataset.selectedDate = selectedDate;
+
+    // Обновляем текстовое содержимое ячейки, включая дату
+    currentCell.textContent = `${selectedTaskTitles.join(', ')} (${selectedDate})`;
+
+    employeeWorkload[userId] = calculateTotalWorkload(userId);
+
+    updateTable(userId);
+
+    updateActualWorkload(userId);
+
+    saveCheckboxStateToBitrix();
+
+    closeTaskSelect();
+}
+
+function closeTaskSelect() {
+    const taskSelectContainer = document.getElementById('taskSelectContainer');
+    taskSelectContainer.style.display = 'none';
+}
+
+function calculateTotalWorkload(userId, excludeCell = null) {
+    const cells = document.querySelectorAll(`td[data-user-id='${userId}']`);
+    let totalWorkload = 0;
+
+    cells.forEach(cell => {
+        if (cell === excludeCell) return;
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        const time = parseFloat(cell.dataset.time) || 0;
+        if (selectedTasks.length > 0) {
+            totalWorkload += time * selectedTasks.length;
+        }
+    });
+
+    return totalWorkload;
+}
+
+function updateTable(userId) {
+    const cells = document.querySelectorAll(`td[data-user-id='${userId}']`);
+    const totalWorkload = employeeWorkload[userId];
+
+    cells.forEach(cell => {
+        const time = parseFloat(cell.dataset.time) || 0;
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        if (selectedTasks.length > 0) {
+            cell.classList.add('selected');
+            cell.classList.remove('free');
+            cell.classList.remove('blocked');
+        } else if (totalWorkload + time > workingTimeLimit) {
+            cell.classList.add('blocked');
+            cell.classList.remove('selected');
+            cell.classList.remove('free');
+            cell.textContent = "Время израсходовано";
+        } else {
+            cell.classList.add('free');
+            cell.classList.remove('blocked');
+            cell.classList.remove('selected');
+            cell.textContent = "Можно назначить задачу";
+        }
+    });
+
+    const totalCell = document.querySelector(`#tasksTable tfoot tr:nth-child(1) td[data-user-id='${userId}']`);
+    totalCell.textContent = `${totalWorkload} ч.`;
+}
+
+function getTimeSpentInLogs(taskId, startDate, endDate, callback) {
+    BX24.init(function() {
+    BX24.callMethod(
+        'task.elapseditem.getlist',
+        { 'TASKID': taskId },
+        function(result) {
+            if (result.error()) {
+                logError('Ошибка API при получении затраченного времени', result.error());
+                callback(0);
+            } else {
+                let timeSpent = 0;
+                result.data().forEach(function(logItem) {
+                    const logDate = new Date(logItem.CREATED_DATE);
+                    if (logDate >= startDate && logDate < endDate) {
+                        timeSpent += parseInt(logItem.SECONDS, 10);
+                    }
+                });
+                logInfo('Затраченное время для задачи', { taskId, timeSpent });
+                callback(timeSpent);
+            }
+        }
+    );
+    })
+}
+
+function updateActualWorkload(userId) {
+    const dateInput = document.getElementById('taskDate');
+    const selectedDate = dateInput.value;
+
+    if (!selectedDate) {
+        console.error('Дата не выбрана');
+        return;
+    }
+
+    // Преобразуем строку в объект Date
+    const startDate = new Date(selectedDate);
+    const endDate = new Date(selectedDate);
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    let actualWorkload = 0;
+    const uniqueTaskIds = new Set();
+    const cells = document.querySelectorAll(`td[data-user-id='${userId}']`);
+    const taskPromises = [];
+
+    cells.forEach(cell => {
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        selectedTasks.forEach(taskId => {
+            if (!uniqueTaskIds.has(taskId)) {
+                uniqueTaskIds.add(taskId);
+                taskPromises.push(new Promise((resolve, reject) => {
+                    getTimeSpentInLogs(taskId, startDate, endDate, function(timeSpent) {
+                        actualWorkload += timeSpent / 3600;
+                        resolve();
+                    });
+                }));
+            }
+        });
+    });
+
+    Promise.all(taskPromises)
+        .then(() => {
+            employeeActualWorkload[userId] = actualWorkload;
+
+            const actualCell = document.querySelector(`#tasksTable tfoot tr:nth-child(2) td[data-user-id='${userId}']`);
+            actualCell.textContent = `${actualWorkload.toFixed(1)} ч.`;
+        })
+        .catch(error => {
+            logError('Ошибка API', error);
+        });
+}
+
+function saveAllTasks() {
+    if (!customFieldId) {
+        checkCustomFieldExists().then(fieldId => {
+            if (fieldId) {
+                customFieldId = fieldId;
+                saveTasksWithCustomField();
+            } else {
+                createCustomField().then(fieldId => {
+                    customFieldId = fieldId;
+                    saveCustomFieldId(customFieldId).then(() => {
+                        saveTasksWithCustomField();
+                    }).catch(error => {
+                        logError('Ошибка при сохранении ID пользовательского поля', error);
+                    });
+                }).catch(error => {
+                    logError('Ошибка при создании пользовательского поля', error);
+                });
+            }
+        }).catch(error => {
+            logError('Ошибка при проверке существования пользовательского поля', error);
+        });
+    } else {
+        saveTasksWithCustomField();
+    }
+}
+
+function checkCustomFieldExists() {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'task.item.userfield.getlist',
+            {
+                order: { "ID": "ASC" },
+                filter: { "EDIT_IN_LIST": "Y" }
+            },
+            function(result) {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    const fields = result.data();
+                    const existingField = fields.find(field => field.FIELD_NAME === 'UF_AUTO_165392880898');
+                    if (existingField) {
+                        resolve(existingField.ID);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            }
+        );
+    });
+}
+
+function createCustomField() {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'task.item.userfield.add',
+            {
+                PARAMS: {
+                    'FIELD_NAME': 'UF_AUTO_165392880898',
+                    'USER_TYPE_ID': 'double',
+                    'XML_ID': 'MY_TASK_FIELD',
+                    'EDIT_FORM_LABEL': {'en': 'New task field', 'ru': 'Планируемое время на день'},
+                    'LABEL': 'New task field'
+                }
+            },
+            function(result) {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    resolve(result.data());
+                }
+            }
+        );
+    });
+}
+
+function logError(message, error) {
+    console.error(message, error);
+    alert(message + ': ' + JSON.stringify(error, Object.getOwnPropertyNames(error)));
+}
+
+function saveTasksWithCustomField() {
+    const cells = document.querySelectorAll('td[data-user-id]');
+    const taskUpdates = [];
+
+    cells.forEach(cell => {
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        const time = cell.dataset.time;
+
+        selectedTasks.forEach(taskId => {
+            taskUpdates.push(new Promise((resolve, reject) => {
+                BX24.callMethod(
+                    'tasks.task.update',
+                    {
+                        taskId: taskId,
+                        fields: {
+                            'UF_AUTO_165392880898': parseFloat(time)
+                        }
+                    },
+                    function(result) {
+                        if (result.error()) {
+                            logError('Ошибка API при обновлении задачи', result.error());
+                            reject(result.error());
+                        } else {
+                            logInfo('Задача обновлена', { taskId, time });
+                            resolve();
+                        }
+                    }
+                );
+            }));
+        });
+    });
+
+    Promise.all(taskUpdates)
+        .then(() => {
+            alert('Все задачи успешно обновлены.');
+        })
+        .catch(error => {
+            logError('Ошибка при обновлении задач', error);
+        });
+}
+
+function fetchUsers(workingtime) {
+    showLoading();
+
+    BX24.callMethod(
+        'user.get',
+        {
+            'ORDER': {'ID': 'ASC'},
+            'FILTER': {'ACTIVE': 'Y'},
+            'SELECT': ['ID', 'NAME', 'LAST_NAME', 'EMAIL', 'WORK_POSITION']
+        },
+        function(result) {
+            if (result.error()) {
+                logError('Ошибка API', result.error());
+                hideLoading();
+            } else {
+                const users = result.data();
+                if (Array.isArray(users)) {
+                    fetchTasksForAllUsers(users, function(tasksByUser) {
+                        window.tasksByUser = tasksByUser;
+                        populateTable(users, workingtime, tasksByUser);
+                        hideLoading();
+                    });
+                } else {
+                    logError('Неверный формат данных пользователей', users);
+                    hideLoading();
+                }
+            }
+        }
+    );
+}
+
+function restoreCustomFieldId() {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'app.option.get',
+            { 'option': 'customFieldId' },
+            function(result) {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    const options = result.data();
+                    if (options && options.customFieldId) {
+                        resolve(options.customFieldId);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            }
+        );
+    });
+}
+
+function saveCustomFieldId(fieldId) {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'app.option.set',
+            { 'option': 'customFieldId', 'value': fieldId },
+            function(result) {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    resolve();
+                }
+            }
+        );
+    });
+}
+
+function saveCheckboxStateToBitrix() {
+    const selectedDate = document.getElementById('taskDate').value; // Получаем выбранную дату
+    if (!selectedDate) {
+        console.error('Дата не выбрана');
+        return;
+    }
+
+    const cells = document.querySelectorAll('td[data-user-id]');
+    const newCheckboxStates = {};
+
+    cells.forEach(cell => {
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        const cellId = `${cell.dataset.userId}_${cell.dataset.time}`;
+        
+        if (!newCheckboxStates[cellId]) {
+            newCheckboxStates[cellId] = {};
+        }
+        
+        newCheckboxStates[cellId][selectedDate] = {
+            tasks: selectedTasks
+        };
+    });
+
+    const newStateString = JSON.stringify(newCheckboxStates);
+    console.log('Новые состояния чекбоксов (строка):', newStateString);
+
+    // Сначала получаем текущие данные
+    console.log('Запрос текущих состояний чекбоксов из Bitrix24...');
+    BX24.callMethod(
+        'app.option.get',
+        { 'checkboxStates': '' },
+        function(result) {
+            if (result.error()) {
+                console.error('Ошибка при получении текущего состояния чекбоксов из Bitrix24', result.error());
+            } else {
+                console.log('Текущие состояния чекбоксов из Bitrix24:', result.data());
+
+                let currentStates = {};
+                if (typeof result.data() === 'string' && result.data().trim() !== '') {
+                    try {
+                        currentStates = JSON.parse(result.data().checkboxStates.replace(/\\/g, ''));
+                    } catch (e) {
+                        console.error('Ошибка при парсинге текущих состояний чекбоксов:', e);
+                    }
+                }
+                console.log('Текущие состояния чекбоксов (объект):', currentStates);
+
+                // Инициализируем oldstates, если она не была инициализирована
+                if (!oldstates) {
+                    oldstates = {};
+                }
+
+                // Объединяем текущие состояния с новыми
+                for (const [key, value] of Object.entries(newCheckboxStates)) {
+                    if (!oldstates[key]) {
+                        oldstates[key] = {};
+                    }
+                    for (const [date, state] of Object.entries(value)) {
+                        oldstates[key][date] = state;
+                    }
+                }
+
+                const mergedStateString = JSON.stringify(oldstates);
+                console.log('Объединенные состояния чекбоксов (строка):', mergedStateString);
+
+                // Сохраняем объединенные данные
+                console.log('Сохранение объединенных состояний чекбоксов в Bitrix24...');
+                BX24.callMethod(
+                    'app.option.set',
+                    { 'checkboxStates': mergedStateString },
+                    function(result) {
+                        if (result.error()) {
+                            console.error('Ошибка при сохранении состояния чекбоксов в Bitrix24', result.error());
+                        } else {
+                            console.log('Состояние чекбоксов успешно сохранено в Bitrix24', result.data());
+                        }
+                    }
+                );
+            }
+        }
+    );
+}
+
+function loadCheckboxStateFromBitrix() {
+    const selectedDate = document.getElementById('taskDate').value; // Получаем выбранную дату
+    if (!selectedDate) {
+        console.error('Дата не выбрана');
+        return;
+    }
+
+    // Сначала получаем текущие данные
+    console.log('Запрос текущих состояний чекбоксов из Bitrix24...');
+    BX24.callMethod(
+        'app.option.get',
+        { 'checkboxStates': '' },
+        function(result) {
+            if (result.error()) {
+                console.error('Ошибка при получении текущего состояния чекбоксов из Bitrix24', result.error());
+            } else {
+                console.log('Текущие состояния чекбоксов из Bitrix24:', result.data());
+
+                let currentStates = {};
+                if (typeof result.data() === 'string' && result.data().trim() !== '') {
+                    try {
+                        currentStates = JSON.parse(result.data().checkboxStates);
+                    } catch (e) {
+                        console.error('Ошибка при парсинге текущих состояний чекбоксов:', e);
+                    }
+                }
+                console.log('Текущие состояния чекбоксов (объект):', currentStates);
+
+                // Извлекаем состояния для выбранной даты
+                const dateStates = {};
+                for (const [key, value] of Object.entries(currentStates)) {
+                    if (value[selectedDate]) {
+                        dateStates[key] = value[selectedDate];
+                    }
+                }
+
+                console.log('Состояния чекбоксов для выбранной даты:', dateStates);
+
+                // Здесь вы можете обновить интерфейс в соответствии с извлеченными состояниями
+                // Например, установить состояния чекбоксов в таблице
+                const cells = document.querySelectorAll('td[data-user-id]');
+                cells.forEach(cell => {
+                    const cellId = `${cell.dataset.userId}_${cell.dataset.time}`;
+                    if (dateStates[cellId]) {
+                        cell.dataset.selectedTasks = dateStates[cellId].tasks.join(',');
+                        // Обновите интерфейс, например, установите чекбоксы в соответствии с dateStates[cellId].tasks
+                    }
+                });
+            }
+        }
+    );
+}
+
+var oldstates = {}; // Инициализируем oldstates как пустой объект
+
+function restoreCheckboxStateFromBitrix(targetDate) {
+    return new Promise((resolve, reject) => {
+        BX24.callMethod(
+            'app.option.get',
+            {},
+            function(result) {
+                if (result.error()) {
+                    console.error('Ошибка при восстановлении состояния чекбоксов из Bitrix24', result.error());
+                    reject(result.error());
+                } else {
+                    const options = result.data();
+                    if (options.checkboxStates) {
+                        const stateString = options.checkboxStates;
+                        oldstates = JSON.parse(stateString.replace(/\\/g, ''));
+
+                        // Фильтруем состояния чекбоксов по указанной дате
+                        const filteredStates = {};
+                        for (const cellId in oldstates) {
+                            if (oldstates[cellId][targetDate]) {
+                                filteredStates[cellId] = oldstates[cellId][targetDate];
+                            }
+                        }
+
+                        console.log('Отфильтрованное состояние чекбоксов (объект):', filteredStates);
+
+                        applyCheckboxState(filteredStates, targetDate);
+                        resolve();
+                    } else {
+                        console.warn('Восстановленное состояние чекбоксов пусто или null');
+                        resolve();
+                    }
+                }
+            }
+        );
+    });
+}
+
+    function applyCheckboxState(checkboxStates, targetDate) {
+        const cells = document.querySelectorAll('td[data-user-id]');
+
+        cells.forEach(cell => {
+            const cellId = `${cell.dataset.userId}_${cell.dataset.time}`;
+            const state = checkboxStates[cellId] || { tasks: [] };
+            const selectedTasks = state.tasks;
+
+            if (selectedTasks.length > 0) {
+                cell.dataset.selectedTasks = selectedTasks.join(',');
+                cell.dataset.selectedDate = targetDate;
+
+                const selectedTaskTitles = selectedTasks.map(taskId => {
+                    const task = tasksByUser[cell.dataset.userId].find(task => task.id === taskId);
+                    return task ? task.title : '';
+                }).filter(title => title !== '');
+
+                cell.textContent = `${selectedTaskTitles.join(', ')} (${targetDate})`;
+                cell.classList.add('selected');
+                cell.classList.remove('free');
+                cell.classList.remove('blocked');
+            } else {
+                cell.dataset.selectedTasks = '';
+                cell.dataset.selectedDate = '';
+                cell.textContent = "Можно назначить задачу";
+                cell.classList.add('free');
+                cell.classList.remove('selected');
+                cell.classList.remove('blocked');
+            }
+        });
+
+        Object.keys(employeeWorkload).forEach(userId => {
+            employeeWorkload[userId] = calculateTotalWorkload(userId);
+            updateTable(userId);
+            updateActualWorkload(userId);
+        });
+    }
+
+
+function updateAllCells() {
+    const cells = document.querySelectorAll('td[data-user-id]');
+    cells.forEach(cell => {
+        const userId = cell.dataset.userId;
+        const time = parseFloat(cell.dataset.time) || 0;
+        const selectedTasks = cell.dataset.selectedTasks ? cell.dataset.selectedTasks.split(',') : [];
+        const currentTotalWorkload = calculateTotalWorkload(userId, cell);
+        if (selectedTasks.length > 0) {
+            cell.classList.add('selected');
+            cell.classList.remove('free');
+            cell.classList.remove('blocked');
+        } else if (totalWorkload + time > workingTimeLimit) {
+            cell.classList.add('blocked');
+            cell.classList.remove('selected');
+            cell.classList.remove('free');
+            cell.textContent = "Время израсходовано";
+        } else {
+            cell.classList.add('free');
+            cell.classList.remove('blocked');
+            cell.classList.remove('selected');
+            cell.textContent = "Можно назначить задачу";
+        }
+    });
+}
+
+
+
+function initialize() {
+    showLoading();
+    restoreCustomFieldId().then(fieldId => {
+        customFieldId = fieldId;
+        fetchUsers(workingTimeLimit);
+    }).catch(error => {
+        logError('Ошибка при восстановлении ID пользовательского поля', error);
+        hideLoading();
+    });
+}
+const dateInput = document.getElementById('taskDate');
+dateInput.addEventListener('change', (event) => {
+       removeTable();
+        initialize();
+    });
+
+    function removeTable() {
+    const table = document.getElementById('tasksTable');
+    if (table) {
+        const thead = table.querySelector('thead');
+        const tfoot = table.querySelector('tfoot');
+        const tbody = table.querySelector('tbody');
+
+        if (thead) {
+            // Очищаем все строки, кроме первой строки заголовка
+            const rows = thead.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                if (index !== 0) {
+                    row.innerHTML = '';
+                }
+            });
+        }
+        if (tfoot) {
+            // Очищаем содержимое строк в tfoot, но оставляем заголовки
+            const rows = tfoot.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach(cell => {
+                    cell.innerHTML = '';
+                });
+            });
+        }
+        if (tbody) {
+            // Полностью очищаем tbody
+            tbody.innerHTML = '';
+        }
+
+        console.log('Содержимое таблицы очищено');
+    }
+}
+document.getElementById('backButton').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+
+
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

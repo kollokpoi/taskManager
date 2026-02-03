@@ -1,7 +1,7 @@
 <template>
   <div class="p-4">
     <h1 class="text-2xl font-bold mb-4">
-      Учет времени задач/занятости/трудозатрат сотрудников
+      Учет затрат по сделкам
     </h1>
     <div class="flex w-full justify-between">
       <div class="inputs flex items-center h-10">
@@ -160,6 +160,8 @@ const loadDeals = async () => {
 };
 const loadCategories = async () => {
   try {
+    const cat = await dealService.loadCategories();
+    console.log("Cats:", cat)
     categories.value = await dealService.loadCategories();
     console.log("Загружено воронок:", categories.value.length);
   } catch (error) {

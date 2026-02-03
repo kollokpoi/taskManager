@@ -23,7 +23,7 @@ export class Task {
 
   isInDateRange(startDate, endDate) {
     const cacheKey = `range_${startDate}_${endDate}`;
-    
+
     if (this._filteredCache.has(cacheKey)) {
       return this._filteredCache.get(cacheKey);
     }
@@ -37,19 +37,26 @@ export class Task {
     if (!this.elapsedItems || this.elapsedItems.length === 0) return false;
     return this.elapsedItems.some(item => item.isInDateRange(startDate, endDate));
   }
-  
+
   getTimeSpentHours(startDate = null, endDate = null) {
     const cacheKey = `time_spent_${startDate}_${endDate}`;
-    
+
     if (this._calculationCache.has(cacheKey)) {
       return this._calculationCache.get(cacheKey);
     }
 
-    const filteredItems = this.elapsedItems.filter(item => item.isInDateRange(startDate, endDate));
-    const result = filteredItems.reduce((sum, item) => sum + item.seconds, 0) / 3600;
-    
-    this._calculationCache.set(cacheKey, result);
-    return result;
+    if (startDate && endDate) {
+      const filteredItems = this.elapsedItems.filter(item => item.isInDateRange(startDate, endDate));
+      const result = filteredItems.reduce((sum, item) => sum + item.seconds, 0) / 3600;
+
+      this._calculationCache.set(cacheKey, result);
+      return result;
+    } else {
+      const result = this.timeSpent / 3600;
+
+      this._calculationCache.set(cacheKey, result);
+      return result;
+    }
   }
 
   getTimeEstimateHours() {
@@ -58,14 +65,14 @@ export class Task {
 
   toTableRow(startDate, endDate) {
     const cacheKey = `table_row_${startDate}_${endDate}`;
-    
+
     if (this._calculationCache.has(cacheKey)) {
       return this._calculationCache.get(cacheKey);
     }
 
     const timeSpent = this.getTimeSpentHours(startDate, endDate);
     const timeEstimateHours = this.getTimeEstimateHours();
-    
+
     const result = {
       id: this.id,
       title: this.title,

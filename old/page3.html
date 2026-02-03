@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали сделки</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #cccccc;
+        }
+        .overdue {
+            background-color: #ffcccc; /* Цвет для просроченных задач */
+        }
+        .overdue2 {
+            background-color: #72caf3; /* Цвет для задач в работе */
+        }
+        .overdue3 {
+            background-color: #72f387; /* Цвет для выполненных задач */
+        }
+        input[type="button"] {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 0; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        input[type="button"]:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="button" id="Back" value="Назад">
+        <input type="button" id="Glavnaya" value="На главную">
+        <input type="button" id="exportButton" value="Экспорт Excel">
+    </form>
+    <div id="dealInfo"></div>
+    <div id="tasks">
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>Задача</th>
+                    <th>Планируемое время</th>
+                    <th>Фактическое время</th>
+                    <th>Итого</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>Итого</strong></td>
+                    <td id="totalPlannedTime"><strong>0</strong></td>
+                    <td id="totalActualTime"><strong>0</strong></td>
+                    <td id="totalItogo"><strong>0</strong></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script src="https://api.bitrix24.com/api/v1/"></script>
+    <script>
+        (function(w,d,u){
+                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+        })(window,document,'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js');
+</script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var dealId = new URLSearchParams(window.location.search).get('dealid');
+    var responsibleId = new URLSearchParams(window.location.search).get('ID');
+    var tbody = document.querySelector('#tasksTable tbody');
+    var userId; // Получаем ID из данных
+
+    BX24.callMethod('profile', {}, function(result) {
+        var data = result.data(); // Сохраняем данные в переменную
+        console.log(data); // Выводим данные для проверки
+        userId = data.ID;
+        console.log(userId); // Выводим ID
+    });
+
+    BX24.callMethod(
+        'tasks.task.list',
+        {
+            order: { "CREATED_DATE": "DESC" },
+            filter: {"=UF_CRM_TASK": "D_" + dealId, "=RESPONSIBLE_ID": responsibleId},
+            select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE","TITLE","STATUS"]
+        },
+        function(result) {
+            if (result.error()) {
+                console.error(result.error());
+            } else {
+                console.log(result.data());
+                var tasks = result.data().tasks; // Получаем массив задач
+                if (Array.isArray(tasks)) { // Проверяем, является ли tasks массивом
+                    tasks.forEach(function(item) {
+                        var plannedTime = item.timeEstimate || 0;
+                        var actualTime = item.timeSpentInLogs || 0;
+                        var itogo = actualTime - plannedTime;
+                        var row = document.createElement('tr');
+
+                        var statustask = item.real_status; ///////////////////////////////////////////////////////////////////////////////Сделать статусы
+                        var idtask = item.id;
+
+                        var status = item.status;
+                        status = parseInt(status, 10);
+                        switch (status) {
+                            case 1:
+                                statusText = 'Новая';
+                                break;
+                            case 2:
+                                statusText = 'Ждёт выполнения';
+                                break;
+                            case 3:
+                                statusText = 'В работе';
+                                break;
+                            case 4:
+                                statusText = 'почти выполнено';
+                                break;
+                            case 5:
+                                statusText = 'Выполнено';
+                                break;
+                            case 6:
+                                statusText = 'Определяемое';
+                                break;
+                            case 7:
+                                statusText = 'Декларировано';
+                                break;
+                            case -1:
+                                statusText = 'Просрочена';
+                                break;
+                            case -2:
+                                statusText = 'Не просмотрена';
+                                break;
+                            case -3:
+                                statusText = 'почти просрочена';
+                                break;
+                            default:
+                                statusText = item.status;
+                        }
+
+                        if (itogo >= 0.001) {
+                            row.classList.add('overdue'); // красный
+                        } else {
+                            if (item.status != 5) {
+                                row.classList.add('overdue2'); // Синий
+                            } else {
+                                row.classList.add('overdue3'); // зеленый
+                            }
+                        }
+
+                        row.innerHTML = '<td>' + item.title + '</td>' +
+                                        '<td>' + (plannedTime / 3600).toFixed(1) + '</td>' +
+                                        '<td>' + (actualTime / 3600).toFixed(1) + '</td>' +
+                                        '<td>' + (itogo / 3600).toFixed(1) + '</td>' +
+                                        '<td>' + statusText + '</td>';
+                        row.addEventListener('click', function() {
+                            BX24.init(function() {
+    const portalUrl = BX24.getDomain();
+
+    // Выводим переменные в консоль для отладки
+    console.log(`Portal URL: ${portalUrl}`);
+    console.log(`User ID: ${userId}`);
+    console.log(`Task ID: ${idtask}`);
+
+    BX24.openPath(
+        `/company/personal/user/${userId}/tasks/task/view/${idtask}/`,
+        function(result) {
+            console.log(result);
+        }
+    );
+});
+                          //  window.open(`https://vedernikov.bitrix24.ru/company/personal/user/${userId}/tasks/task/view/${idtask}/`);
+                        });
+                        tbody.appendChild(row);
+                    });
+
+                    // Обновляем строку "Итого"
+                    updateTotalRow();
+                } else {
+                    console.error('Expected an array of tasks, but got:', tasks);
+                }
+                if (result.more()) {
+                    result.next();
+                }
+            }
+        }
+    );
+
+    function updateTotalRow() {
+        var totalPlannedTime = 0;
+        var totalActualTime = 0;
+        var totalItogo = 0;
+
+        var rows = document.querySelectorAll('#tasksTable tbody tr');
+        rows.forEach(function(row) {
+            var plannedTime = parseFloat(row.cells[1].textContent);
+            var actualTime = parseFloat(row.cells[2].textContent);
+            var itogo = parseFloat(row.cells[3].textContent);
+
+            totalPlannedTime += plannedTime;
+            totalActualTime += actualTime;
+            totalItogo += itogo;
+        });
+
+        document.getElementById('totalPlannedTime').innerHTML = '<strong>' + totalPlannedTime.toFixed(1) + '</strong>';
+        document.getElementById('totalActualTime').innerHTML = '<strong>' + totalActualTime.toFixed(1) + '</strong>';
+        document.getElementById('totalItogo').innerHTML = '<strong>' + totalItogo.toFixed(1) + '</strong>';
+    }
+    function exportTableToExcel(tableID, filename = ''){
+            var downloadLink;
+            var dataType = 'application/vnd.ms-excel';
+            var tableSelect = document.getElementById(tableID);
+            var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+            
+            // Устанавливаем имя файла
+            filename = filename ? filename + '.xls' : 'excel_data.xls';
+            
+            // Создаем ссылку для скачивания
+            downloadLink = document.createElement("a");
+            
+            document.body.appendChild(downloadLink);
+            
+            if(navigator.msSaveOrOpenBlob){
+                var blob = new Blob(['\ufeff', tableHTML], {
+                    type: dataType
+                });
+                navigator.msSaveOrOpenBlob(blob, filename);
+            } else {
+                // Создаем ссылку на файл
+                downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+            
+                // Устанавливаем имя файла
+                downloadLink.download = filename;
+                
+                // Инициируем скачивание
+                downloadLink.click();
+            }
+        }
+
+        document.getElementById('exportButton').addEventListener('click', function() {
+            exportTableToExcel('tasksTable', 'data');
+        });
+
+    document.getElementById('Glavnaya').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+    document.getElementById('Back').addEventListener('click', function() {
+        window.location.href = 'page2.html?ID=' + dealId;
+    });
+});
+    </script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+html {
+  font-family: 'Helvetica', Arial, sans-serif;
+}
+
+.total-project-time-input {
+  margin-left: 8px;
+  border: none;
+  font-size: 16px;
+  justify-items: center;
+  width: 60px;
+  height: 20px;
+}
+
+.tasks-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+.tasks-table th,
+td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.tasks-table th {
+  background-color: #f2f2f2;
+}
+.total-row {
+  font-weight: bold;
+  background-color: #e0e0e0;
+}
+.project-select {
+  padding: 5px;
+  margin-left: 6px;
+  font-size: 16px;
+}
+
+h3 {
+  margin-top: 4px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgb(0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 40%;
+  position: relative;
+  border-radius: 16px;
+  box-shadow: 4px 4px 20px -6px rgba(20, 30, 37, 0.37);
+}
+
+.close-modal-span {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  margin: 25px;
+  cursor: pointer;
+}
+
+.table-task:hover {
+  background: #dedede;
+}
+
+.responsibles-select {
+  cursor: pointer;
+  padding: 6px;
+
+  width: 160px;
+}
+
+.tasks-header {
+  display: flex;
+  flex-direction: row;
+}
+
+.tasks-header-project {
+  margin-left: 10px;
+}
+
+.tasks-header-time {
+  align-items: center;
+  margin-top: 6px;
+  display: flex;
+}
+
+input:disabled {
+  color: black;
+}
+
+.menu-button {
+  /* position: fixed;
+  top: 20px;
+  right: 20px; */
+  background-color: #72caf3;
+  border: 1px solid #0697da;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 150px;
+}
+
+.menu-button:hover {
+  background-color: #5bc4f5;
+}
+
+.menu-button:active {
+  background-color: #32b0eb;
+}
+
+.menu-button svg {
+  width: 20px; /* Размер иконки */
+  height: 20px;
+  fill: currentColor; /* Цвет иконки будет таким же, как цвет текста */
+  margin-left: 10px; /* Отступ между текстом и иконкой */
+  transition: transform 0.9s;
+}
+
+.menu-button:hover svg {
+  transform: rotate(180deg);
+}
+
+.select-container {
+  position: relative;
+  display: inline-block;
+  width: 240px;
+}
+
+.select-container select {
+  display: inline-block;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.select-container:after {
+  margin-right: 5px;
+}
+
+.save-time-button {
+  background-color: #72caf3;
+  border: 1px solid #0697da;
+  padding: 10px 15px;
+  margin-left: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  align-items: center;
+  justify-content: space-between;
+  width: 100px;
+}
+
+.tasks-header-time-value {
+  font-size: 16px;
+  padding: 4px;
+  margin-bottom: 0px;
+  font-weight: bold;
+}
+
+.container {
+  width: 1300px;
+  height: 500px;
+  gap: 150px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* border: 1px solid #ccc;  Для наглядности */
+}
+.container2 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.menu-manual-button {
+  /* position: fixed; */
+  /* top: 20px;
+  right: 170px; */
+  background-color: #72caf3;
+  border: 1px solid #0697da;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 150px;
+  margin-right: 20px;
+}
+
+.menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+}
+
+.menu-manual-button:hover {
+  background-color: #5bc4f5;
+}
+
+.menu-manual-button:active {
+  background-color: #32b0eb;
+}
+
+.modal-manual {
+  display: none;
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgb(0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-manual-content {
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 40%;
+  position: relative;
+  border-radius: 16px;
+  box-shadow: 4px 4px 20px -6px rgba(20, 30, 37, 0.37);
+}

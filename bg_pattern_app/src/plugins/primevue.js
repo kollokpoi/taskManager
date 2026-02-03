@@ -29,6 +29,7 @@ import Timeline from "primevue/timeline";
 import DatePicker from "primevue/datepicker";
 import InputNumber from "primevue/inputnumber";
 import ProgressSpinner from "primevue/progressspinner";
+import ToggleSwitch from "primevue/toggleswitch";
 
 export default {
   install(app) {
@@ -114,6 +115,6 @@ export default {
     app.component("DatePicker", DatePicker);
     app.component("InputNumber", InputNumber);
     app.component("ProgressSpinner", ProgressSpinner);
-
+    app.component("ToggleSwitch", ToggleSwitch);
   },
 };

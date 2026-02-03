@@ -20,6 +20,7 @@ class BitrixService {
           this.isInitialized = true;
           this.appData.placementOptions = window.BX24.placement.info();
           this.appData.auth = window.BX24.getAuth();
+          this.appData.auth.user = await this.getCurrentUser();
           this.isAuthorized = !!this.appData.auth?.access_token;
 
           console.log(this.appData);
@@ -181,23 +182,55 @@ class BitrixService {
           reject(new Error(result.error()));
         } else {
           const data = result.data();
+          console.log("Ответ от метода", method, ":", data);
 
-          console.log("data", {
-            allData,
-            result: data,
-            total: result.total(),
-          });
-          if (result.total() > 1) {
-            const items = data.tasks || data;
-            allData = allData.concat(Array.isArray(items) ? items : [items]);
+          let items = [];
 
-            if (result.more()) {
-              result.next();
-            } else {
-              resolve(allData);
-            }
+          const methodFieldMap = {
+            'crm.category.list': 'categories',
+            'crm.dealcategory.list': 'categories',
+            'crm.product.list': 'products',
+            'crm.lead.list': 'leads',
+            'crm.deal.list': 'deals',
+            'crm.contact.list': 'contacts',
+            'crm.company.list': 'companies',
+            'tasks.task.list': 'tasks',
+            'user.get': '',
+            'department.get': ''
+          };
+
+          const dataField = methodFieldMap[method];
+
+          if (dataField && data[dataField]) {
+            items = data[dataField];
+          } else if (Array.isArray(data)) {
+            items = data;
+          } else if (data.tasks) {
+            items = data.tasks;
           } else {
-            resolve(data.tasks || data);
+            const arrayFields = Object.values(data).filter(value => Array.isArray(value));
+            if (arrayFields.length > 0) {
+              items = arrayFields[0];
+            } else {
+              items = [data];
+            }
+          }
+
+          if (!Array.isArray(items)) {
+            items = [items];
+          }
+
+          allData = allData.concat(items);
+
+          const total = result.total();
+          const hasMore = result.more();
+
+          console.log(`Собрано: ${allData.length} из ${total}, Есть еще: ${hasMore}`);
+
+          if (hasMore && allData.length < total) {
+            result.next();
+          } else {
+            resolve(allData);
           }
         }
       });
@@ -230,7 +263,15 @@ class BitrixService {
 
   async getCurrentUser() {
     if (!this.isInitialized) await this.init();
-    return await this.callMethod("user.current");
+    return new Promise((resolve, reject) => {
+      window.BX24.callMethod('user.current', {}, (result) => {
+        if (result.error()) {
+          reject(result.error());
+        } else {
+          resolve(result.data());
+        }
+      });
+    });
   }
 
   finishWork() {

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали сделки</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #cccccc;
+        }
+        .overdue {
+            background-color: #ffcccc; /* Цвет для просроченных задач */
+        }
+        .overdue2 {
+            background-color: #72caf3; /* Цвет для просроченных задач */
+        }
+        .overdue3 {
+            background-color: #72f387; /* Цвет для просроченных задач */
+        }
+        .overdue4 {
+            background-color: #f5f84a; /* Цвет для просроченных задач */
+        }
+        input[type="button"] {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 0; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        input[type="button"]:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+        #loading {
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="button" id="Back" value="Назад">
+        <input type="button" id="Glavnaya" value="На главную">
+        <input type="button" id="Calendar" value="Календарь">
+        <input type="button" id="exportButton" value="Экспорт Excel">
+    </form>
+    <div id="dealInfo"></div>
+    <div id="loading">
+        <img src="https://bg59.online/We/loading_big.gif" alt="Loading...">
+    </div>
+    <div id="tasks">
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>Название задачи</th>
+                    <th>Фактическое время</th>
+                    <th>Планируемое время</th>
+                    <th>Дедлайн</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>Итого</strong></td>
+                    <td id="totalActualTime"><strong>0</strong></td>
+                    <td id="totalPlannedTime"><strong>0</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+                <tr>
+                    <td colspan="5">Процент незатраченного времени: <span id="unusedTimePercentage"><strong>0%</strong></span></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div id="totalTime"></div>
+
+    <script src="https://api.bitrix24.com/api/v1/"></script>
+    <script>
+        (function(w,d,u){
+                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+        })(window,document,'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js');
+    </script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var cd = new URLSearchParams(window.location.search).get('CD');
+    var cd2 = new URLSearchParams(window.location.search).get('CD2');
+    var workingtime = parseFloat(new URLSearchParams(window.location.search).get('WT')); // Получаем рабочее время из URL
+    var responsibleId = new URLSearchParams(window.location.search).get('ID');
+    var tbody = document.querySelector('#tasksTable tbody');
+    var userId;
+    console.log(cd,cd2);
+    // Показать гифку загрузки
+    document.getElementById('loading').style.display = 'block';
+
+    BX24.init(function() {
+        BX24.callMethod('user.current', {}, function(result) {
+            if (result.error()) {
+                console.error(result.error());
+                return;
+            }
+            userId = result.data().ID;
+
+            if (!cd) {
+                cd = "12.01.2021"; // Значение по умолчанию, если параметр не передан
+            }
+            if (!cd2) {
+                cd2 = cd; // Значение по умолчанию, если параметр не передан
+            }
+
+            var parts = cd.split('.');
+            var parts2 = cd2.split('.');
+            var startDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            var endDate = new Date(parts2[2], parts2[1] - 1, parts2[0]);
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+
+            var uniqueTasks = new Map(); // Для хранения уникальных задач
+            var requestsCompleted = 0; // Счетчик завершенных запросов
+
+            function processTasks(response) {
+                if (response.error()) {
+                    console.error(response.error());
+                    window.location.reload(); // Перезагружаем страницу при ошибке
+                } else {
+                    response.data().tasks.forEach(task => {
+                        if (!uniqueTasks.has(task.id) && !task.title.includes("Учёт нерабочего времени:")) {
+                            uniqueTasks.set(task.id, task);
+                        }
+                    });
+                    if (response.more()) {
+                        response.next();
+                    } else {
+                        requestsCompleted++;
+                        if (requestsCompleted === 2) { // Проверяем, что оба запроса завершены
+                            fetchLogsForTasks();
+                        }
+                    }
+                }
+            }
+
+            function fetchLogsForTasks() {
+                var tasksProcessed = 0;
+                uniqueTasks.forEach((task, taskId) => {
+                    getTimeSpentInLogs(taskId, function(timeSpent) {
+                        task.timeSpentInLogs = timeSpent;
+                        tasksProcessed++;
+                        if (tasksProcessed === uniqueTasks.size) {
+                            renderTasks();
+                        }
+                    });
+                });
+            }
+
+            function exportTableToExcel(tableID, filename = ''){
+                var downloadLink;
+                var dataType = 'application/vnd.ms-excel';
+                var tableSelect = document.getElementById(tableID);
+                var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+                
+                // Устанавливаем имя файла
+                filename = filename ? filename + '.xls' : 'excel_data.xls';
+                
+                // Создаем ссылку для скачивания
+                downloadLink = document.createElement("a");
+                
+                document.body.appendChild(downloadLink);
+                
+                if(navigator.msSaveOrOpenBlob){
+                    var blob = new Blob(['\ufeff', tableHTML], {
+                        type: dataType
+                    });
+                    navigator.msSaveOrOpenBlob(blob, filename);
+                } else {
+                    // Создаем ссылку на файл
+                    downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+                
+                    // Устанавливаем имя файла
+                    downloadLink.download = filename;
+                    
+                    // Инициируем скачивание
+                    downloadLink.click();
+                }
+            }
+
+            document.getElementById('exportButton').addEventListener('click', function() {
+                exportTableToExcel('tasksTable', 'data');
+            });
+
+            function renderTasks() {
+                uniqueTasks.forEach(item => {
+                    var actualTime = item.timeSpentInLogs || 0;
+                    var plannedTime = item.timeEstimate || 0; // Планируемое время
+                    if (actualTime === 0) {
+                        return; // Пропускаем задачи с фактическим временем 0
+                    }
+                    var row = document.createElement('tr');
+                    var statusText = getStatusText(item.status);
+                    var deadline = item.deadline;
+                    var date = new Date(deadline);
+
+                    if (item.status == -1 || item.status == -3 || item.timeEstimate < item.timeSpentInLogs && plannedTime>0) {
+                        row.classList.add('overdue'); // красный
+                    } else {
+                        if (item.status != 5 && item.status != 4) {
+                            row.classList.add('overdue2'); // Синий
+                        } else {
+                            row.classList.add('overdue3'); // зеленый
+                        }
+                    }
+                    row.innerHTML = '<td>' + item.title + '</td>' +
+                                    '<td>' + (actualTime / 3600).toFixed(1) + ' ч.' + '</td>' +
+                                    '<td>' + (plannedTime / 3600).toFixed(1) + ' ч.' + '</td>' + // Добавляем планируемое время
+                                    '<td>' + date.toLocaleString('ru-RU') + '</td>' +
+                                    '<td>' + statusText + '</td>';
+                    row.addEventListener('click', function() {
+                        BX24.init(function() {
+                            const portalUrl = BX24.getDomain();
+
+                            // Выводим переменные в консоль для отладки
+                            console.log(`Portal URL: ${portalUrl}`);
+                            console.log(`User ID: ${userId}`);
+
+                            BX24.openPath(
+                                `/company/personal/user/${userId}/tasks/task/view/${item.id}/`,
+                                function(result) {
+                                    console.log(result);
+                                }
+                            );
+                        });
+                    });
+                    tbody.appendChild(row);
+                });
+
+                recalculateTotals();
+
+                // Скрыть гифку загрузки после завершения загрузки данных
+                document.getElementById('loading').style.display = 'none';
+            }
+
+            function recalculateTotals() {
+                var totalActualTime = 0;
+                var totalPlannedTime = 0;
+
+                var rows = tbody.querySelectorAll('tr');
+                rows.forEach(function(row) {
+                    var actualTime = parseFloat(row.cells[1].textContent) || 0;
+                    var plannedTime = parseFloat(row.cells[2].textContent) || 0;
+
+                    totalActualTime += actualTime;
+                    totalPlannedTime += plannedTime;
+                });
+
+                document.getElementById('totalActualTime').innerHTML = '<strong>' + totalActualTime.toFixed(1) + '</strong>';
+                document.getElementById('totalPlannedTime').innerHTML = '<strong>' + totalPlannedTime.toFixed(1) + '</strong>';
+
+                // Вычисляем процент незатраченного времени
+                var unusedTimePercentage = ((workingtime - totalActualTime) / workingtime) * 100;
+                document.getElementById('unusedTimePercentage').innerHTML = '<strong>' + unusedTimePercentage.toFixed(1) + '%</strong>';
+            }
+
+            function getTimeSpentInLogs(taskId, callback) {
+                BX24.callMethod(
+                    'task.elapseditem.getlist',
+                    { 'TASKID': taskId },
+                    function(result) {
+                        if (result.error()) {
+                            console.error(result.error());
+                            window.location.reload(); // Перезагружаем страницу при ошибке
+                            callback(0);
+                        } else {
+                            var timeSpent = 0;
+                            result.data().forEach(function(logItem) {
+                                var logDate = new Date(logItem.CREATED_DATE);
+                                if (logDate >= startDate && logDate < endDate) {
+                                    timeSpent += parseInt(logItem.SECONDS, 10);
+                                }
+                            });
+                            callback(timeSpent);
+                        }
+                    }
+                );
+            }
+
+            // Запрос для задач, созданных в указанный день
+            if (cd != cd2) {
+                BX24.callMethod(
+                    'tasks.task.list',
+                    {
+                        order: { "CREATED_DATE": "DESC" },
+                        filter: {
+                            "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                            ">=CREATED_DATE": startDate.toISOString(),
+                            "<=CREATED_DATE": endDate.toISOString()
+                        },
+                        select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                    },
+                    processTasks
+                );
+                BX24.callMethod(
+                    'tasks.task.list',
+                    {
+                        order: { "CHANGED_DATE": "DESC" },
+                        filter: {
+                            "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                            ">=CHANGED_DATE": startDate.toISOString(),
+                            "<=CHANGED_DATE": endDate.toISOString()
+                        },
+                        select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                    },
+                    processTasks
+                );
+            } else {
+                console.log("Даты равны");
+                BX24.callMethod(
+                    'tasks.task.list',
+                    {
+                        order: { "CREATED_DATE": "DESC" },
+                        filter: {
+                            "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                            ">=CREATED_DATE": startDate.toISOString()
+                        },
+                        select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                    },
+                    processTasks
+                );
+                BX24.callMethod(
+                    'tasks.task.list',
+                    {
+                        order: { "CHANGED_DATE": "DESC" },
+                        filter: {
+                            "RESPONSIBLE_ID": responsibleId, // Фильтр по ID ответственного
+                            ">=CHANGED_DATE": startDate.toISOString()
+                        },
+                        select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TITLE", "STATUS", "DEADLINE", "TIME_ESTIMATE"]
+                    },
+                    processTasks
+                );
+            }
+        });
+    });
+
+    document.getElementById('Glavnaya').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+    document.getElementById('Back').addEventListener('click', function() {
+        window.location.href = 'page5.html?CD=' + cd + '&CD2=' + cd2 + '&WT=' + workingtime;
+    });
+    document.getElementById('Calendar').addEventListener('click', function() {
+        BX24.init(function() {
+            const portalUrl = BX24.getDomain();
+            window.location.href = `https://${portalUrl}/company/personal/user/${userId}/tasks/employee/plan/?FILTER_OWNER=230&MEMBER[USER][]=${responsibleId}&TASK[DATE_RANGE][FROM]=${cd}%2000%3A00%3А00&TASK[DATE_RANGE][TO]=22.06.2024%2000%3А00%3А00`;
+        });
+    });
+});
+
+function getStatusText(status) {
+    status = parseInt(status, 10);
+    switch (status) {
+        case 1: return 'Новая';
+        case 2: return 'Ждёт выполнения';
+        case 3: return 'В работе';
+        case 4: return 'Ждёт подтверждения постановщика';
+        case 5: return 'Выполнено';
+        case 6: return 'Определяемое';
+        case 7: return 'Декларировано';
+        case -1: return 'Просрочена';
+        case -2: return 'Не просмотрена';
+        case -3: return 'почти просрочена';
+        default: return 'Неизвестный статус';
+    }
+}
+    </script>
+</body>
+</html>

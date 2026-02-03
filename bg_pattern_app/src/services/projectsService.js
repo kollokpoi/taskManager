@@ -40,7 +40,7 @@ export class ProjectService {
   }
 
   async getProjectDetails(projectId, startDate, endDate) {
-    const cacheKey = `project_details_${projectId}`;
+    const cacheKey = `project_details_${projectId}_${startDate}_${endDate}`;
     
     if (this.projectDetailsCache.has(cacheKey)) {
       return this.projectDetailsCache.get(cacheKey);

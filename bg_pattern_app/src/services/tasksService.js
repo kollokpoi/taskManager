@@ -12,7 +12,7 @@ export class TaskService {
   // ============== Основные публичные методы ==============
 
   async getTasks(startDate = null, endDate = null) {
-    
+
     const dateStr = startDate?.toISOString().split("T")[0];
 
     const [closedTasks, openTasks] = await Promise.all([
@@ -149,8 +149,8 @@ export class TaskService {
 
     const nextDay = new Date(endDate);
     nextDay.setDate(nextDay.getDate() + 1);
-    const dateStart = startDate.toISOString().split("T")[0];
-    const dateEnd = nextDay.toISOString().split("T")[0];
+    const dateStart = startDate.toISOString();
+    const dateEnd = nextDay.toISOString();
 
     const allItems = [];
     const perPage = 50;
@@ -249,7 +249,6 @@ export class TaskService {
     const tasks = Array.isArray(filterOrTasks)
       ? filterOrTasks
       : await this._executeTasksQuery(filterOrTasks);
-
     if (!startDate || !endDate) {
       return tasks.map(data => new Task(data));
     }

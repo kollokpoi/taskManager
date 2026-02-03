@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали сделки</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #cccccc;
+        }
+        .overdue {
+            background-color: #ffcccc;
+        }
+        .overdue2 {
+            background-color: #72caf3;
+        }
+        .overdue3 {
+            background-color: #72f387;
+        }
+        .overdue4 {
+            background-color: #f5f84a;
+        }
+        input[type="button"] {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 0; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        input[type="button"]:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+        select {
+            background-color: #f2f2f2; /* Светло-серый фон */
+            border: 1px solid #ccc; /* Светло-серая граница */
+            color: #333; /* Темно-серый текст */
+            padding: 5px 7px; /* Отступы */
+            font-size: 12px; /* Размер шрифта */
+            border-radius: 5px; /* Скругленные углы */
+            margin: 4px 2px; /* Отступы между элементами */
+            font-weight: bold; /* Жирный шрифт */
+            appearance: none; /* Убираем стандартный стиль браузера */
+            -webkit-appearance: none; /* Убираем стандартный стиль браузера для WebKit */
+            -moz-appearance: none; /* Убираем стандартный стиль браузера для Firefox */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23333" d="M2 0L0 2h4zM2 5L0 3h4z"/></svg>'); /* Добавляем стрелочку */
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 10px;
+            width: 200px; /* Увеличиваем ширину */
+        }
+
+        select:focus {
+            border-color: #61b8f1;
+            outline: none; /* Убираем стандартное выделение */
+            box-shadow: 0 0 5px rgba(76, 168, 175, 0.5); /* Тень при фокусе */
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="button" id="Glavnaya" value="На главную">
+        <input type="button" id="Calendar" value="Календарь">
+        <input type="button" id="exportButton" value="Экспорт Excel">
+        <select id="userSelect">
+            <option value="">Все сотрудники</option>
+        </select>
+        <select id="colorFilter">
+            <option value="">Фильтр</option>
+            <option value="overdue">Переработка</option>
+            <option value="overdue2">В работе</option>
+            <option value="overdue3">Остаток</option>
+            <option value="overdue4">Не указано время</option>
+        </select>
+        <span id="createdDateDisplay"></span>
+    </form>
+    <div id="dealInfo"></div>
+    <div id="tasks">
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>Задача</th>
+                    <th>Исполнитель</th>
+                    <th>Планируемое время</th>
+                    <th>Фактическое время</th>
+                    <th>Итого</th>
+                    <th>Дэдлайн</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>Итого</strong></td>
+                    <td id="totalTasks"><strong>0</strong></td>
+                    <td id="totalPlannedTime"><strong>0</strong></td>
+                    <td id="totalActualTime"><strong>0</strong></td>
+                    <td id="totalItogo"><strong>0</strong></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div id="totalTime"></div>
+
+    <script src="https://api.bitrix24.com/api/v1/"></script>
+    <script>
+        (function(w,d,u){
+                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+        })(window,document,'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js');
+</script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tbody = document.querySelector('#tasksTable tbody');
+    var userId;
+    var createdtime = new URLSearchParams(window.location.search).get('CD');
+    var createdtime2 = new URLSearchParams(window.location.search).get('CD2');
+    var workingtime = new URLSearchParams(window.location.search).get('WT');
+    
+    var selectedUserId;
+
+    if (createdtime == "undefined.undefined.") {
+        createdtime = createdtime2;
+    }
+    if (createdtime2 == "undefined.undefined.") {
+        createdtime2 = createdtime;
+    }
+    fetchUsers();
+    loadAllTasks();
+
+    document.getElementById('userSelect').addEventListener('change', function() {
+        selectedUserId = this.value;
+        if (selectedUserId) {
+            updateTasksForUser(selectedUserId);
+            updateTotalTimeForUser(selectedUserId);
+        } else {
+            loadAllTasks();
+        }
+    });
+
+    document.getElementById('colorFilter').addEventListener('change', function() {
+        filterTasksByColor(this.value);
+    });
+
+    BX24.callMethod('profile', {}, function(result) {
+        var data = result.data();
+        userId = data.ID;
+    });
+
+
+    console.log("Переданная дата:" + createdtime);
+
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+const month = String(today.getMonth() + 1).padStart(2, '0'); // Месяцы начинаются с 0
+const year = today.getFullYear();
+    // Установите значение элемента для отображения даты
+    document.getElementById('createdDateDisplay').textContent = `С ${createdtime} до ${createdtime2}`;
+
+    function loadAllTasks() {
+        tbody.innerHTML = '';
+        var tasks = [];
+        if(createdtime != createdtime2){
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CREATED_DATE": "DESC" },
+                filter: {">=CREATED_DATE": createdtime,"<=CREATED_DATE": createdtime2},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    tasks = tasks.concat(result.data().tasks);
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        loadTasksByChangedDate(tasks);
+                    }
+                }
+            }
+        );
+        }else{
+            BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CREATED_DATE": "DESC" },
+                filter: {">=CREATED_DATE": createdtime},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    tasks = tasks.concat(result.data().tasks);
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        loadTasksByChangedDate(tasks);
+                    }
+                }
+            }
+        );
+        }
+    }
+    function exportTableToExcel(tableID, filename = ''){
+            var downloadLink;
+            var dataType = 'application/vnd.ms-excel';
+            var tableSelect = document.getElementById(tableID);
+            var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+            
+            // Устанавливаем имя файла
+            filename = filename ? filename + '.xls' : 'excel_data.xls';
+            
+            // Создаем ссылку для скачивания
+            downloadLink = document.createElement("a");
+            
+            document.body.appendChild(downloadLink);
+            
+            if(navigator.msSaveOrOpenBlob){
+                var blob = new Blob(['\ufeff', tableHTML], {
+                    type: dataType
+                });
+                navigator.msSaveOrOpenBlob(blob, filename);
+            } else {
+                // Создаем ссылку на файл
+                downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+            
+                // Устанавливаем имя файла
+                downloadLink.download = filename;
+                
+                // Инициируем скачивание
+                downloadLink.click();
+            }
+        }
+
+        document.getElementById('exportButton').addEventListener('click', function() {
+            exportTableToExcel('tasksTable', 'data');
+        });
+
+    function loadTasksByChangedDate(existingTasks) {
+        if(createdtime != createdtime2){
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CHANGED_DATE": "DESC" },
+                filter: {">=CHANGED_DATE": createdtime,"<=CHANGED_DATE": createdtime2},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    var tasks = existingTasks.concat(result.data().tasks);
+                    tasks = removeDuplicateTasks(tasks);
+                    tasks.forEach(function(item) {
+                        appendTaskRow(item, tbody);
+                    });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        recalculateTotals();
+                    }
+                }
+            }
+        );
+        }else{
+            BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CHANGED_DATE": "DESC" },
+                filter: {">=CHANGED_DATE": createdtime},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    var tasks = existingTasks.concat(result.data().tasks);
+                    tasks = removeDuplicateTasks(tasks);
+                    tasks.forEach(function(item) {
+                        appendTaskRow(item, tbody);
+                    });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        recalculateTotals();
+                    }
+                }
+            }
+        );
+        }
+    }
+
+    function removeDuplicateTasks(tasks) {
+        var uniqueTasks = [];
+        var taskIds = new Set();
+
+        tasks.forEach(function(task) {
+            if (!taskIds.has(task.id)) {
+                uniqueTasks.push(task);
+                taskIds.add(task.id);
+            }
+        });
+
+        return uniqueTasks;
+    }
+
+    function updateTasksForUser(userId) {
+        tbody.innerHTML = '';
+        var tasks = [];
+        if(createdtime != createdtime2){
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CREATED_DATE": "DESC" },
+                filter: {">=CREATED_DATE": createdtime, "RESPONSIBLE_ID": userId,"<=CREATED_DATE": createdtime2},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    tasks = tasks.concat(result.data().tasks);
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        loadTasksByChangedDateForUser(tasks, userId);
+                    }
+                }
+            }
+        );
+        }else{
+            BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CREATED_DATE": "DESC" },
+                filter: {">=CREATED_DATE": createdtime, "RESPONSIBLE_ID": userId},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    tasks = tasks.concat(result.data().tasks);
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        loadTasksByChangedDateForUser(tasks, userId);
+                    }
+                }
+            }
+        );
+        }
+    }
+
+    function loadTasksByChangedDateForUser(existingTasks, userId) {
+        if(createdtime != createdtime2){
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CHANGED_DATE": "DESC" },
+                filter: {">=CHANGED_DATE": createdtime, "RESPONSIBLE_ID": userId,"<=CHANGED_DATE": createdtime2},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    var tasks = existingTasks.concat(result.data().tasks);
+                    tasks = removeDuplicateTasks(tasks);
+                    tasks.forEach(function(item) {
+                        appendTaskRow(item, tbody);
+                    });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        recalculateTotals();
+                    }
+                }
+            }
+        );
+        }else{
+            BX24.callMethod(
+            'tasks.task.list',
+            {
+                order: { "CHANGED_DATE": "DESC" },
+                filter: {">=CHANGED_DATE": createdtime, "RESPONSIBLE_ID": userId},
+                select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE", "TITLE", "STATUS","CREATED_DATE","CHANGED_DATE","DEADLINE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    var tasks = existingTasks.concat(result.data().tasks);
+                    tasks = removeDuplicateTasks(tasks);
+                    tasks.forEach(function(item) {
+                        appendTaskRow(item, tbody);
+                    });
+                    if (result.more()) {
+                        result.next();
+                    } else {
+                        recalculateTotals();
+                    }
+                }
+            }
+        );
+        }
+    }
+
+    function appendTaskRow(item, tbody) {
+        var plannedTime = item.timeEstimate || 0;
+        var actualTime = item.timeSpentInLogs || 0;
+        var itogo = actualTime - plannedTime;
+        var row = document.createElement('tr');
+        var idtask = item.id;
+        var FIO = item.responsible.name;
+        var deadlin = item.deadline;
+        var date = new Date(deadlin);
+        var statusText = getStatusText(item.status);
+        console.log(item.status);
+
+        if (itogo >= 0.001 || item.status == -1) {
+            row.classList.add('overdue'); // красный
+        } else {
+            if (item.status != 5 && item.status != 4) {
+                row.classList.add('overdue2'); // Синий
+            } else {
+                row.classList.add('overdue3'); // зеленый
+            }
+        }
+        if(plannedTime == 0){
+            row.classList.add('overdue4');
+        }
+        row.innerHTML = '<td>' + item.title + '</td>' +
+                        '<td>' + FIO + '</td>' +
+                        '<td>' + (plannedTime / 3600).toFixed(1) + '</td>' +
+                        '<td>' + (actualTime / 3600).toFixed(1) + '</td>' +
+                        '<td>' + (itogo / 3600).toFixed(1) + '</td>' +
+                        '<td>' + date.toLocaleString('ru-RU') + '</td>' +
+                        '<td>' + statusText + '</td>';
+
+        row.addEventListener('click', function() {
+BX24.init(function() {
+    const portalUrl = BX24.getDomain();
+
+    // Выводим переменные в консоль для отладки
+    console.log(`Portal URL: ${portalUrl}`);
+    console.log(`User ID: ${userId}`);
+    console.log(`Task ID: ${idtask}`);
+
+    BX24.openPath(
+        `/company/personal/user/${userId}/tasks/task/view/${idtask}/`,
+        function(result) {
+            console.log(result);
+        }
+    );
+});
+            
+        });
+
+        tbody.appendChild(row);
+    }
+
+    function getStatusText(status) {
+        status = parseInt(status, 10);
+        switch (status) {
+            case 1: return 'Новая';
+            case 2: return 'Ждёт выполнения';
+            case 3: return 'В работе';
+            case 4: return 'Ждёт подтверждения постановщика';
+            case 5: return 'Выполнено';
+            case 6: return 'Определяемое';
+            case 7: return 'Декларировано';
+            case -1: return 'Просрочена';
+            case -2: return 'Не просмотрена';
+            case -3: return 'почти просрочена';
+            default: return 'Неизвестный статус';
+        }
+    }
+
+    function recalculateTotals() {
+        var totalTasks = 0;
+        var totalPlannedTime = 0;
+        var totalActualTime = 0;
+        var totalItogo = 0;
+
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function(row) {
+            if (row.style.display !== 'none') {
+                var plannedTime = parseFloat(row.cells[2].textContent) || 0;
+                var actualTime = parseFloat(row.cells[3].textContent) || 0;
+                var itogo = parseFloat(row.cells[4].textContent) || 0;
+
+                totalTasks++;
+                totalPlannedTime += plannedTime;
+                totalActualTime += actualTime;
+                totalItogo += itogo;
+            }
+        });
+
+        document.getElementById('totalTasks').innerHTML = '<strong>' + totalTasks + '</strong>';
+        document.getElementById('totalPlannedTime').innerHTML = '<strong>' + totalPlannedTime.toFixed(1) + '</strong>';
+        document.getElementById('totalActualTime').innerHTML = '<strong>' + totalActualTime.toFixed(1) + '</strong>';
+        document.getElementById('totalItogo').innerHTML = '<strong>' + totalItogo.toFixed(1) + '</strong>';
+    }
+
+    function updateTotalTimeForUser(userId) {
+        let totalTime = 0;
+        if(createdtime != createdtime2){
+        BX24.callMethod(
+            'tasks.task.list',
+            {
+                filter: {">=CREATED_DATE": createdtime,'RESPONSIBLE_ID': userId,"<=CREATED_DATE": createdtime2},
+                select: ["TIME_SPENT_IN_LOGS", "TIME_ESTIMATE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    result.data().tasks.forEach(task => {
+                        const actualTime = task.timeSpentInLogs || 0;
+                        const plannedTime = task.timeEstimate || 0;
+                        totalTime += actualTime - plannedTime;
+                    });
+                    displayTotalTime(totalTime);
+                }
+            }
+        );
+        }else{
+            BX24.callMethod(
+            'tasks.task.list',
+            {
+                filter: {">=CREATED_DATE": createdtime,'RESPONSIBLE_ID': userId},
+                select: ["TIME_SPENT_IN_LOGS", "TIME_ESTIMATE"]
+            },
+            function(result) {
+                if (result.error()) {
+                    console.error(result.error());
+                } else {
+                    result.data().tasks.forEach(task => {
+                        const actualTime = task.timeSpentInLogs || 0;
+                        const plannedTime = task.timeEstimate || 0;
+                        totalTime += actualTime - plannedTime;
+                    });
+                    displayTotalTime(totalTime);
+                }
+            }
+        );
+        }
+    }
+
+    function displayTotalTime(totalTime) {
+        const totalTimeElement = document.getElementById('totalTime');
+        if(totalTime > 0){
+            totalTimeElement.textContent = `Избыток: ${(totalTime / 3600).toFixed(1)} ч.`;
+        } else {
+            totalTimeElement.textContent = `Излишек: ${(totalTime / 3600).toFixed(1)} ч.`;
+        }
+    }
+
+    function filterTasksByColor(colorClass) {
+        var rows = document.querySelectorAll('#tasksTable tbody tr');
+        rows.forEach(function(row) {
+            if (colorClass === "" || row.classList.contains(colorClass)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+        recalculateTotals(); // Пересчитываем итоги после фильтрации
+    }
+
+    document.getElementById('Glavnaya').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+    document.getElementById('Calendar').addEventListener('click', function() {
+        window.location.href = `https://vedernikov.bitrix24.ru/company/personal/user/${userId}/tasks/employee/plan/?FILTER_OWNER=230&MEMBER[USER][]=${selectedUserId}&TASK[DATE_RANGE][FROM]=${createdtime}%2000%3А00%3А00&TASK[DATE_RANGE][TO]=22.06.2024%2000%3А00%3А00`;
+    });
+});
+
+function fetchUsers() {
+    BX24.callMethod(
+        'user.get',
+        {
+            'ORDER': {'ID': 'ASC'},
+            'FILTER': {'ACTIVE': 'Y'},
+            'SELECT': ['ID', 'NAME', 'LAST_NAME', 'EMAIL', 'WORK_POSITION']
+        },
+        function(result) {
+            if(result.error()) {
+                console.error('Ошибка API:', result.error());
+            } else {
+                populateSelect(result.data());
+                if(result.more()) {
+                    result.next();
+                }
+            }
+        }
+    );
+}
+
+function populateSelect(users) {
+    const select = document.getElementById('userSelect');
+    users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.ID;
+        option.textContent = `${user.NAME} ${user.LAST_NAME}`;
+        select.appendChild(option);
+    });
+}
+
+function printSelectedUser() {
+    const select = document.getElementById('userSelect');
+    const selectedUser = select.options[select.selectedIndex].text;
+    console.log(selectedUser);
+}
+    </script>
+</body>
+</html>

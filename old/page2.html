@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали сделки</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #cccccc; /* Цвет затемнения при наведении */
+        }
+        .overdue {
+            background-color: #ffcccc; /* Цвет для просроченных задач */
+        }
+        input[type="button"] {
+            background-color: #72caf3; /* Зеленый фон */
+            border: none; /* Убираем границу */
+            color: rgb(0, 0, 0); /* Белый текст */
+            padding: 7px 16px; /* Отступы */
+            text-align: center; /* Выравнивание текста по центру */
+            text-decoration: none; /* Убираем подчеркивание текста */
+            display: inline-block; /* Отображение в одну строку */
+            font-size: 12px; /* Размер шрифта */
+            margin: 4px 2px; /* Отступы между кнопками */
+            cursor: pointer; /* Курсор в виде руки при наведении */
+            border-radius: 6px; /* Скругленные углы */
+            margin-top: 0; /* Убираем отступ сверху */
+            font-weight: bold; /* Жирный шрифт */
+        }
+        input[type="button"]:hover {
+            background-color: #3b7981; /* Темно-зеленый фон при наведении */
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="button" id="Glavnaya" value="На главную">
+    </form>
+    <div id="dealInfo"></div>
+    <div id="tasks">
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>Имя сотрудника</th>
+                    <th>Количество задач</th>
+                    <th>Планируемое время</th>
+                    <th>Фактическое время</th>
+                    <th>Итого</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>Итого</strong></td>
+                    <td id="totalTasks"><strong>0</strong></td>
+                    <td id="totalPlannedTime"><strong>0</strong></td>
+                    <td id="totalActualTime"><strong>0</strong></td>
+                    <td id="totalItogo"><strong>0</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script src="//api.bitrix24.com/api/v1/"></script>
+    <script>
+        (function(w,d,u){
+                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+        })(window,document,'https://cdn-ru.bitrix24.ru/b17983416/crm/site_button/loader_14_8iqgv8.js');
+</script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var dealId = new URLSearchParams(window.location.search).get('ID');
+
+    // Запрос информации о сделке
+    BX24.callMethod(
+        "crm.deal.get",
+        { id: dealId },
+        function(result) {
+            if(result.error())
+                console.error(result.error());
+            else {
+                var deal = result.data();
+                document.getElementById('dealInfo').innerHTML = 'Сделка: ' + deal.TITLE;
+            }
+        }
+    );
+
+    BX24.callMethod(
+        'tasks.task.list',
+        {
+            order: { "CREATED_DATE": "DESC" },
+            filter: {"=UF_CRM_TASK": "D_" + dealId},
+            select: ["ID", "RESPONSIBLE_ID", "RESPONSIBLE.NAME", "TIME_SPENT_IN_LOGS", "TIME_ESTIMATE"]
+        },
+        function(result) {
+            if(result.error()) {
+                console.error(result.error());
+            } else {
+                var tasks = result.data().tasks;
+                var taskData = {};
+
+                var totalTasks = 0;
+                var totalPlannedTime = 0;
+                var totalActualTime = 0;
+                var totalItogo = 0;
+
+                tasks.forEach(function(task) {
+                    var responsibleId = task.responsible.id;
+                    var responsibleName = task.responsible.name;
+                    var timeSpentInLogs = task.timeSpentInLogs;
+                    var timeEstimate = task.timeEstimate;
+
+                    console.log('ID:', responsibleId, 'Name:', responsibleName, 'Raw Time Spent in Logs:', timeSpentInLogs, 'Raw Time Estimate:', timeEstimate); // Логирование времени
+
+                    if (!taskData[responsibleId]) {
+                        taskData[responsibleId] = { count: 0, timeSpent: 0, timeEstimated: 0, name: responsibleName, id: responsibleId};
+                    }
+                    taskData[responsibleId].count++;
+                    if (timeSpentInLogs !== null) {
+                        var timeInHoursSpent = parseInt(timeSpentInLogs, 10);
+                        if (!isNaN(timeInHoursSpent)) {
+                            taskData[responsibleId].timeSpent += timeInHoursSpent;
+                        }
+                    }
+                    if (timeEstimate !== null) {
+                        var timeInHoursEstimated = parseInt(timeEstimate, 10);
+                        if (!isNaN(timeInHoursEstimated)) {
+                            taskData[responsibleId].timeEstimated += timeInHoursEstimated;
+                        }
+                    }
+                });
+                console.log(result.data());
+                console.log('Final taskData:', taskData); // Логирование итогового массива
+                var tbody = document.querySelector('#tasksTable tbody');
+                Object.values(taskData).forEach(function(data) {
+                    console.log("taskdata"+taskData);
+                    var totalHours = (data.timeSpent - data.timeEstimated) / 3600;
+                    var row = document.createElement('tr');
+                    if (totalHours>=0.001) {
+                        row.classList.add('overdue');
+                    }
+                    row.innerHTML =
+                        '<td>' + data.name + '</td>' +
+                        '<td>' + data.count + '</td>' +
+                        '<td>' + (data.timeEstimated.toFixed(3) ? (data.timeEstimated/3600).toFixed(1) + ' ч.' : 'Нет данных') + '</td>' +
+                        '<td>' + (data.timeSpent ? (data.timeSpent/3600).toFixed(1) + ' ч.' : 'Нет данных') + '</td>' +
+                        '<td>' + (totalHours ? totalHours.toFixed(1) + ' ч.' : 'Нет данных') + '</td>';
+                    tbody.appendChild(row);
+
+                    // Суммируем значения
+                    totalTasks += data.count;
+                    totalPlannedTime += data.timeEstimated;
+                    totalActualTime += data.timeSpent;
+                    totalItogo += totalHours;
+
+                    row.addEventListener('click', function() {
+                        window.location.href = 'page3.html?ID=' + data.id + '&dealid=' + dealId;
+                    });
+                });
+
+                // Обновляем значения в строке "Итого"
+                document.getElementById('totalTasks').innerHTML = '<strong>' + totalTasks + '</strong>';
+                document.getElementById('totalPlannedTime').innerHTML = '<strong>' + (totalPlannedTime / 3600).toFixed(1) + ' ч.' + '</strong>';
+                document.getElementById('totalActualTime').innerHTML = '<strong>' + (totalActualTime / 3600).toFixed(1) + ' ч.' + '</strong>';
+                document.getElementById('totalItogo').innerHTML = '<strong>' + totalItogo.toFixed(1) + ' ч.' + '</strong>';
+            }
+        }
+    );
+
+    document.getElementById('Glavnaya').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+});
+    </script>
+</body>
+</html>
