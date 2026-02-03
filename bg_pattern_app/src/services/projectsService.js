@@ -2,6 +2,7 @@ import bitrixService from './bitrixService.js';
 import { taskService } from './tasksService.js';
 import { userService } from './usersService.js';
 import { Project } from '../models/project.js';
+import { User } from '../models/user.js';
 
 export class ProjectService {
   constructor() {
@@ -90,8 +91,9 @@ export class ProjectService {
         return [];
       }
 
-      const users = await userService.getUsers();
-      return users.filter(user => userIds.includes(user.id.toString()));
+      const users = await userService._fetchUsers();
+      return users.map(user=>new User(user))
+      .filter(user => userIds.includes(user.id));
     } catch (error) {
       console.error(`Ошибка получения участников проекта ${projectId}:`, error);
       return [];

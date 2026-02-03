@@ -64,10 +64,6 @@ export class UserService {
       data: response.result || response || [],
       timestamp: Date.now(),
     };
-    console.log("shortUser", {
-      shortUsers: this.shortUsers,
-      response,
-    });
     return response.result || response || [];
   }
 

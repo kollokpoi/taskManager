@@ -13,7 +13,7 @@ export class TaskService {
 
   async getTasks(startDate = null, endDate = null) {
 
-    const dateStr = startDate?.toISOString().split("T")[0];
+    const dateStr = startDate?.toISOString();
 
     const [closedTasks, openTasks] = await Promise.all([
       this._executeTasksQuery({ ">=CLOSED_DATE": dateStr }),

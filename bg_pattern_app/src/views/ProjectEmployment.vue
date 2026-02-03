@@ -220,6 +220,7 @@ const loadProjectDetails = async () => {
     loadingProjectDetails.value = false;
   }
 };
+
 const timeByResponsible = computed(() => {
   if (!currentProject.value || !currentProject.value.users || !currentProject.value.users.length || currentProject.value.tasks.length <= 0) {
     return {};
@@ -239,7 +240,6 @@ const timeByResponsible = computed(() => {
 
 const onProjectChange = async () => {
   selectedUserId.value = null;
-  await loadProjectDetails();
 };
 
 const getProjectName = (projectId) => {
@@ -311,7 +311,7 @@ watch(
     const datesChanged = newStartDate !== oldStartDate || newEndDate !== oldEndDate;
 
     // Загружаем только если есть ID проекта и даты
-    if (projectChanged || datesChanged) {
+    if (newProjectId && (projectChanged || datesChanged)) {
       console.log('Изменение условий - перезагружаю проект...');
       await loadProjectDetails();
     }
@@ -352,6 +352,11 @@ const filteredProjects = computed(() => {
       task.responsibleId == selectedUserId.value
     );
   }
+
+  console.log("data",{
+    id:selectedUserId.value,
+    filtered
+  })
 
   const plannedTotal = timeElapsed.value;
   const actualTotal = filtered.reduce((sum, task) => sum + task.timeSpent, 0);
