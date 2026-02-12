@@ -13,6 +13,6 @@ export default defineConfig({
     assetsDir: 'assets'
   },
   server: {
-    host: true
+    host: true,
   }
 });
