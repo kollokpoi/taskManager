@@ -61,6 +61,7 @@ export class User {
       .map(task => {
         const taskTimeSpent = task.getTimeSpentHours(startDateCopy, endDateCopy);
         return {
+          id:task.id,
           title: task.title,
           timeSpent: taskTimeSpent,
           workTime,

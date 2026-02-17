@@ -179,6 +179,7 @@
           paginator
           :rows="10"
           :rowsPerPageOptions="[5, 10, 20, 50]"
+          @row-click="onTaskRowClick"
           paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
           currentPageReportTemplate="Показано {first} - {last} из {totalRecords} дел">
             <Column field="title" header="Задача" sortable>
@@ -218,6 +219,7 @@
   import { useGlobalDates } from '../utils/globalDates.js';
   import { userService } from '../services/usersService.js';
   import debounce from '../utils/debounce.js';
+  import bitrixService from '../services/bitrixService.js';
   const globalDates = useGlobalDates();
 
   const startDate = ref();
@@ -303,6 +305,19 @@
       ...employees
     ];
   });
+  const onTaskRowClick = async (event) => {
+    const taskData = event.data;
+    const url = `/company/personal/user/${bitrixService.appData.auth.user.ID}/tasks/task/view/${taskData.id}/`
+    console.log({
+      user: bitrixService.appData.auth.user,
+      url
+    })
+    window.BX24.openPath(
+      url,
+      function (result) {
+        console.log(result);
+      })
+  };
 
   const onUserChange = (event) => {
     console.log('Выбран сотрудник:', {

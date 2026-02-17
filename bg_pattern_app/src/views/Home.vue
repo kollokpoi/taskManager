@@ -1,7 +1,7 @@
 <template>
   <div class="p-4">
     <h1 class="text-2xl font-bold mb-4">
-      Учет затрат по сделкамs
+      Учет затрат по сделкам
     </h1>
     <div class="flex w-full justify-between">
       <div class="inputs flex items-center h-10">

@@ -44,7 +44,7 @@
       >
         <Column field="name" header="Сотрудник" sortable>
           <template #body="{ data }">
-            <span class="font-medium">{{ data.name }}</span>
+            <span class="font-medium">{{ "Демонстрационный сотрудник" }}</span>
           </template>
         </Column>
         <Column field="taskCount" header="Задачи" sortable>
@@ -124,7 +124,7 @@
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div class="bg-gray-50 p-3 rounded">
             <div class="text-sm text-gray-500">Сотрудник</div>
-            <div class="font-medium">{{ selectedRow.name }}</div>
+            <div class="font-medium">{{ "Демонстрационный сотрудник" }}</div>
           </div>
 
           <div class="bg-gray-50 p-3 rounded">
@@ -170,7 +170,7 @@
         >
           <Column field="title" header="Задача" sortable>
             <template #body="{ data }">
-              <span class="font-medium">{{ data.title }}</span>
+              <span class="font-medium">{{ "Демонстрационные задачи" }}</span>
             </template>
           </Column>
           <Column field="timeEstimate" header="Время задачи" sortable>
